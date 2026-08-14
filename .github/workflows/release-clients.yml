@@ -41,7 +41,6 @@ permissions:
 env:
   RUSTFLAGS: ""
   RELEASE_FLAGS: --release
-  WORKSPACE: agent
 
 jobs:
   # ------------------------------------------------------------------ CLI --
@@ -89,9 +88,9 @@ jobs:
           sudo apt-get install -y build-essential dpkg-dev rpm
 
       - name: Build CLI
-        working-directory: ${{ env.WORKSPACE }}
+        working-directory: agent
         shell: bash
-        run: cargo build ${{ env.RELEASE_FLAGS }} --target ${{ matrix.target }} --bin octoport
+        run: cargo build --release --target ${{ matrix.target }} --bin octoport
 
       # Stage raw binary
       - name: Stage CLI binary
@@ -99,55 +98,56 @@ jobs:
         run: |
           mkdir -p dist
           if [ "${{ matrix.os }}" = "windows" ]; then
-            cp "${{ env.WORKSPACE }}/target/${{ matrix.target }}/release/octoport.exe" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
+            cp "agent/target/${{ matrix.target }}/release/octoport.exe" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
           else
-            cp "${{ env.WORKSPACE }}/target/${{ matrix.target }}/release/octoport" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
+            cp "agent/target/${{ matrix.target }}/release/octoport" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
           fi
 
       # Package Linux CLI: .deb, .rpm, .tar.gz
       - name: Package Linux CLI (.deb, .rpm, .tar.gz)
         if: matrix.os == 'linux'
-        working-directory: ${{ env.WORKSPACE }}
+        working-directory: agent/crates/octoport-cli
         shell: bash
         run: |
           set -euo pipefail
           cargo install cargo-deb cargo-rpm --locked
           cargo deb --no-build --target ${{ matrix.target }}
           cargo rpm --no-build --target ${{ matrix.target }}
-          cd dist
-          tar czf "octoport-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" "octoport-${{ matrix.os }}-${{ matrix.arch }}"
           # Copy built packages to dist
-          cp ../../target/${{ matrix.target }}/debian/octoport_*.deb dist/ 2>/dev/null || true
-          cp ../../target/${{ matrix.target }}/rpmbuild/RPMS/*/octoport-*.rpm dist/ 2>/dev/null || true
+          mkdir -p ../../../dist
+          cp ../../../target/${{ matrix.target }}/debian/octoport_*.deb ../../../dist/ 2>/dev/null || true
+          cp ../../../target/${{ matrix.target }}/rpmbuild/RPMS/*/octoport-*.rpm ../../../dist/ 2>/dev/null || true
+          # tar.gz
+          cd ../../../dist
+          tar czf "octoport-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" "octoport-${{ matrix.os }}-${{ matrix.arch }}"
 
       # Package macOS CLI: .dmg, .pkg
       - name: Package macOS CLI (.dmg, .pkg)
         if: matrix.os == 'macos'
-        working-directory: ${{ env.WORKSPACE }}
+        working-directory: agent/crates/octoport-cli
         shell: bash
         run: |
           cargo install cargo-bundle --locked
-          cargo bundle --release --target ${{ matrix.target }} --bin octoport
-          mkdir -p dist
-          # cargo-bundle outputs .app, .dmg, .pkg in target/.../bundle/
-          find ../../target/${{ matrix.target }}/release/bundle -name "octoport*.dmg" -exec cp {} dist/ \;
-          find ../../target/${{ matrix.target }}/release/bundle -name "octoport*.pkg" -exec cp {} dist/ \;
+          cargo bundle --release --target ${{ matrix.target }} -p octoport-cli
+          mkdir -p ../../../dist
+          find ../../../target/${{ matrix.target }}/release/bundle -name "octoport*.dmg" -exec cp {} ../../../dist/ \;
+          find ../../../target/${{ matrix.target }}/release/bundle -name "octoport*.pkg" -exec cp {} ../../../dist/ \;
           # Also copy raw binary for install.sh
-          cp "../../target/${{ matrix.target }}/release/octoport" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
+          cp "../../../target/${{ matrix.target }}/release/octoport" "../../../dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
 
       # Package Windows CLI: .msi
       - name: Package Windows CLI (.msi)
         if: matrix.os == 'windows'
-        working-directory: ${{ env.WORKSPACE }}
+        working-directory: agent/crates/octoport-cli
         shell: pwsh
         run: |
           cargo install cargo-bundle --locked
-          cargo bundle --release --target ${{ matrix.target }} --bin octoport
-          mkdir -p dist
+          cargo bundle --release --target ${{ matrix.target }} -p octoport-cli
+          mkdir -p ../../../dist
           # cargo-bundle outputs .msi in target/.../bundle/msi/
-          Copy-Item ../../target/${{ matrix.target }}/release/bundle/msi/octoport*.msi dist/ 2>$null
+          Copy-Item ../../../target/${{ matrix.target }}/release/bundle/msi/octoport*.msi ../../../dist/ 2>$null
           # Also copy raw .exe for install.sh
-          Copy-Item "../../target/${{ matrix.target }}/release/octoport.exe" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}.exe"
+          Copy-Item "../../../target/${{ matrix.target }}/release/octoport.exe" "../../../dist/octoport-${{ matrix.os }}-${{ matrix.arch }}.exe"
 
       # Sigstore keyless attestation so anyone can verify provenance:
       #   gh attestation verify octoport-linux-x86_64 --repo 047pegasus/octoport
@@ -207,25 +207,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential
 
-      - name: Build
-        working-directory: ${{ env.WORKSPACE }}
+      - name: Build GUI
+        working-directory: agent
         shell: bash
-        run: cargo build ${{ env.RELEASE_FLAGS }} --target ${{ matrix.target }} --bin octoport-app
+        run: cargo build --release --target ${{ matrix.target }} --bin octoport-app
 
       - name: Stage app
         shell: bash
         run: |
           mkdir -p dist
           if [ "${{ matrix.os }}" = "windows" ]; then
-            cp "${{ env.WORKSPACE }}/target/${{ matrix.target }}/release/octoport-app.exe" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}.exe"
+            cp "agent/target/${{ matrix.target }}/release/octoport-app.exe" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}.exe"
           else
-            cp "${{ env.WORKSPACE }}/target/${{ matrix.target }}/release/octoport-app" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}"
+            cp "agent/target/${{ matrix.target }}/release/octoport-app" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}"
           fi
 
       # Package Linux GUI: .deb, .rpm, .tar.gz, .AppImage
       - name: Package Linux GUI (.deb, .rpm, .tar.gz, .AppImage)
         if: matrix.os == 'linux'
-        working-directory: ${{ env.WORKSPACE }}
+        working-directory: agent
         shell: bash
         run: |
           set -euo pipefail
@@ -239,7 +239,7 @@ jobs:
           mkdir -p "$APPDIR/usr/bin"
           mkdir -p "$APPDIR/usr/share/applications"
           mkdir -p "$APPDIR/usr/share/icons/hicolor/256x256/apps"
-          cp "../../target/${{ matrix.target }}/release/octoport-app" "$APPDIR/usr/bin/octoport-app"
+          cp "../target/${{ matrix.target }}/release/octoport-app" "$APPDIR/usr/bin/octoport-app"
           cat > "$APPDIR/octoport-app.desktop" <<'EOF'
           [Desktop Entry]
           Type=Application
@@ -273,7 +273,7 @@ jobs:
           exec "$HERE/usr/bin/octoport-app" "$@"
           EOF
           chmod +x "$APPDIR/AppRun"
-          cp "../../target/${{ matrix.target }}/release/octoport-app" "$APPDIR/usr/bin/octoport-app"
+          cp "../target/${{ matrix.target }}/release/octoport-app" "$APPDIR/usr/bin/octoport-app"
           cp "$APPDIR/octoport-app.desktop" "$APPDIR/usr/share/applications/octoport-app.desktop"
           if [ -f "../../agent/assets/octoport-app-icon.png" ]; then
             cp "../../agent/assets/octoport-app-icon.png" "$APPDIR/octoport-app.png"
@@ -302,7 +302,7 @@ jobs:
       # Package Linux GUI: .deb, .rpm
       - name: Package Linux GUI (.deb, .rpm)
         if: matrix.os == 'linux'
-        working-directory: ${{ env.WORKSPACE }}
+        working-directory: agent/crates/octoport-gui
         shell: bash
         run: |
           set -euo pipefail
@@ -310,13 +310,14 @@ jobs:
           cargo deb --no-build --target ${{ matrix.target }}
           cargo rpm --no-build --target ${{ matrix.target }}
           # Copy built packages to dist
-          cp ../../target/${{ matrix.target }}/debian/octoport-gui_*.deb dist/ 2>/dev/null || true
-          cp ../../target/${{ matrix.target }}/rpmbuild/RPMS/*/octoport-gui-*.rpm dist/ 2>/dev/null || true
+          mkdir -p ../../../dist
+          cp ../../../target/${{ matrix.target }}/debian/octoport-gui_*.deb ../../../dist/ 2>/dev/null || true
+          cp ../../../target/${{ matrix.target }}/rpmbuild/RPMS/*/octoport-gui-*.rpm ../../../dist/ 2>/dev/null || true
 
       # Package macOS GUI: .dmg, .pkg
       - name: Package macOS GUI (.dmg, .pkg)
         if: matrix.os == 'macos'
-        working-directory: ${{ env.WORKSPACE }}
+        working-directory: agent
         shell: bash
         run: |
           cargo install cargo-bundle --locked
@@ -329,13 +330,17 @@ jobs:
       # Package Windows GUI: .msi
       - name: Package Windows GUI (.msi)
         if: matrix.os == 'windows'
-        working-directory: ${{ env.WORKSPACE }}
+        working-directory: agent
         shell: pwsh
         run: |
           cargo install cargo-bundle --locked
           cargo bundle --release --target ${{ matrix.target }} -p octoport-gui
           mkdir -p dist
-          Copy-Item ../../target/${{ matrix.target }}/release/bundle/msi/octoport-app*.msi dist/ 2>$null
+          # Find and copy .msi (path may vary)
+          $msiPath = Get-ChildItem -Path "../../target/${{ matrix.target }}/release/bundle" -Filter "octoport-app*.msi" -Recurse | Select-Object -First 1
+          if ($msiPath) {
+            Copy-Item $msiPath.FullName "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}.msi"
+          }
           Copy-Item "../../target/${{ matrix.target }}/release/octoport-app.exe" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}.exe"
 
       # Sign macOS app (optional)
