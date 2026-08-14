@@ -41,6 +41,7 @@ permissions:
 env:
   RUSTFLAGS: ""
   RELEASE_FLAGS: --release
+  WORKSPACE: agent
 
 jobs:
   # ------------------------------------------------------------------ CLI --
@@ -71,8 +72,6 @@ jobs:
             arch: aarch64
             runner: windows-latest
             target: aarch64-pc-windows-msvc
-    env:
-      WORKSPACE: agent
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -100,14 +99,15 @@ jobs:
         run: |
           mkdir -p dist
           if [ "${{ matrix.os }}" = "windows" ]; then
-            cp "agent/target/${{ matrix.target }}/release/octoport.exe" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
+            cp "${{ env.WORKSPACE }}/target/${{ matrix.target }}/release/octoport.exe" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
           else
-            cp "agent/target/${{ matrix.target }}/release/octoport" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
+            cp "${{ env.WORKSPACE }}/target/${{ matrix.target }}/release/octoport" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
           fi
 
       # Package Linux CLI: .deb, .rpm, .tar.gz
       - name: Package Linux CLI (.deb, .rpm, .tar.gz)
         if: matrix.os == 'linux'
+        working-directory: ${{ env.WORKSPACE }}
         shell: bash
         run: |
           set -euo pipefail
@@ -123,6 +123,7 @@ jobs:
       # Package macOS CLI: .dmg, .pkg
       - name: Package macOS CLI (.dmg, .pkg)
         if: matrix.os == 'macos'
+        working-directory: ${{ env.WORKSPACE }}
         shell: bash
         run: |
           cargo install cargo-bundle --locked
@@ -132,11 +133,12 @@ jobs:
           find ../../target/${{ matrix.target }}/release/bundle -name "octoport*.dmg" -exec cp {} dist/ \;
           find ../../target/${{ matrix.target }}/release/bundle -name "octoport*.pkg" -exec cp {} dist/ \;
           # Also copy raw binary for install.sh
-          cp "agent/target/${{ matrix.target }}/release/octoport" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
+          cp "../../target/${{ matrix.target }}/release/octoport" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
 
       # Package Windows CLI: .msi
       - name: Package Windows CLI (.msi)
         if: matrix.os == 'windows'
+        working-directory: ${{ env.WORKSPACE }}
         shell: pwsh
         run: |
           cargo install cargo-bundle --locked
@@ -145,7 +147,7 @@ jobs:
           # cargo-bundle outputs .msi in target/.../bundle/msi/
           Copy-Item ../../target/${{ matrix.target }}/release/bundle/msi/octoport*.msi dist/ 2>$null
           # Also copy raw .exe for install.sh
-          Copy-Item "agent/target/${{ matrix.target }}/release/octoport.exe" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}.exe"
+          Copy-Item "../../target/${{ matrix.target }}/release/octoport.exe" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}.exe"
 
       # Sigstore keyless attestation so anyone can verify provenance:
       #   gh attestation verify octoport-linux-x86_64 --repo 047pegasus/octoport
@@ -188,8 +190,6 @@ jobs:
             arch: aarch64
             runner: windows-latest
             target: aarch64-pc-windows-msvc
-    env:
-      WORKSPACE: agent
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -217,18 +217,21 @@ jobs:
         run: |
           mkdir -p dist
           if [ "${{ matrix.os }}" = "windows" ]; then
-            cp "agent/target/${{ matrix.target }}/release/octoport-app.exe" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}.exe"
+            cp "${{ env.WORKSPACE }}/target/${{ matrix.target }}/release/octoport-app.exe" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}.exe"
           else
-            cp "agent/target/${{ matrix.target }}/release/octoport-app" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}"
+            cp "${{ env.WORKSPACE }}/target/${{ matrix.target }}/release/octoport-app" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}"
           fi
 
       # Package Linux GUI: .deb, .rpm, .tar.gz, .AppImage
       - name: Package Linux GUI (.deb, .rpm, .tar.gz, .AppImage)
         if: matrix.os == 'linux'
+        working-directory: ${{ env.WORKSPACE }}
         shell: bash
         run: |
           set -euo pipefail
           # tar.gz
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/octoport-app" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}"
           cd dist
           tar czf "octoport-app-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" "octoport-app-${{ matrix.os }}-${{ matrix.arch }}"
           # AppImage
@@ -236,7 +239,7 @@ jobs:
           mkdir -p "$APPDIR/usr/bin"
           mkdir -p "$APPDIR/usr/share/applications"
           mkdir -p "$APPDIR/usr/share/icons/hicolor/256x256/apps"
-          cp "octoport-app-${{ matrix.os }}-${{ matrix.arch }}" "$APPDIR/usr/bin/octoport-app"
+          cp "../../target/${{ matrix.target }}/release/octoport-app" "$APPDIR/usr/bin/octoport-app"
           cat > "$APPDIR/octoport-app.desktop" <<'EOF'
           [Desktop Entry]
           Type=Application
@@ -270,7 +273,7 @@ jobs:
           exec "$HERE/usr/bin/octoport-app" "$@"
           EOF
           chmod +x "$APPDIR/AppRun"
-          cp "octoport-app-${{ matrix.os }}-${{ matrix.arch }}" "$APPDIR/usr/bin/octoport-app"
+          cp "../../target/${{ matrix.target }}/release/octoport-app" "$APPDIR/usr/bin/octoport-app"
           cp "$APPDIR/octoport-app.desktop" "$APPDIR/usr/share/applications/octoport-app.desktop"
           if [ -f "../../agent/assets/octoport-app-icon.png" ]; then
             cp "../../agent/assets/octoport-app-icon.png" "$APPDIR/octoport-app.png"
@@ -299,6 +302,7 @@ jobs:
       # Package Linux GUI: .deb, .rpm
       - name: Package Linux GUI (.deb, .rpm)
         if: matrix.os == 'linux'
+        working-directory: ${{ env.WORKSPACE }}
         shell: bash
         run: |
           set -euo pipefail
@@ -312,6 +316,7 @@ jobs:
       # Package macOS GUI: .dmg, .pkg
       - name: Package macOS GUI (.dmg, .pkg)
         if: matrix.os == 'macos'
+        working-directory: ${{ env.WORKSPACE }}
         shell: bash
         run: |
           cargo install cargo-bundle --locked
@@ -319,18 +324,21 @@ jobs:
           mkdir -p dist
           find ../../target/${{ matrix.target }}/release/bundle -name "octoport-app*.dmg" -exec cp {} dist/ \;
           find ../../target/${{ matrix.target }}/release/bundle -name "octoport-app*.pkg" -exec cp {} dist/ \;
-          cp "agent/target/${{ matrix.target }}/release/octoport-app" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}"
+          cp "../../target/${{ matrix.target }}/release/octoport-app" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}"
 
       # Package Windows GUI: .msi
       - name: Package Windows GUI (.msi)
         if: matrix.os == 'windows'
+        working-directory: ${{ env.WORKSPACE }}
         shell: pwsh
         run: |
           cargo install cargo-bundle --locked
           cargo bundle --release --target ${{ matrix.target }} --bin octoport-app
           mkdir -p dist
           Copy-Item ../../target/${{ matrix.target }}/release/bundle/msi/octoport-app*.msi dist/ 2>$null
-          Copy-Item "agent/target/${{ matrix.target }}/release/octoport-app.exe" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}.exe"
+          Copy-Item "../../target/${{ matrix.target }}/release/octoport-app.exe" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}.exe"
+
+      # Sign macOS app (optional)
       - name: Sign macOS app (optional)
         if: matrix.os == 'macos'
         shell: bash
