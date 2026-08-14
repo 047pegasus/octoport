@@ -1,0 +1,38 @@
+# =============================================================================
+# OctoPort website — production stack for the home server.
+#
+# Copy to:  /srv/apps/octoport-website/docker-compose.yml
+#
+# Same conventions as every other app here: traefik-public, `web` entrypoint,
+# no published ports, watchtower auto-deploy.
+# =============================================================================
+
+services:
+  web:
+    image: ghcr.io/047pegasus/octoport-website:${IMAGE_TAG:-latest}
+    container_name: octoport-website
+    restart: unless-stopped
+
+    networks:
+      - traefik-public
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.octoport-site.rule=Host(`octoport.itanishq.space`)"
+      - "traefik.http.routers.octoport-site.entrypoints=web"
+      # Named hosts must outrank the tunnel catch-all (priority 1) so this is
+      # never swallowed by it.
+      - "traefik.http.routers.octoport-site.priority=100"
+      - "traefik.http.services.octoport-site.loadbalancer.server.port=80"
+      - "com.centurylinklabs.watchtower.enable=true"
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  traefik-public:
+    external: true
+    name: traefik-public

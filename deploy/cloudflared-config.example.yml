@@ -1,0 +1,72 @@
+# Cloudflare Tunnel ingress rules for the octoport platform.
+# Merge these into your EXISTING cloudflared ingress list (see
+# /srv/infrastructure/docker-compose.yml). Cloudflare now supports proxied
+# wildcard records on ALL plans, so every subdomain can flow through your
+# single tunnel to the same Traefik, which does the Host-based routing.
+#
+#   tunnel: <your-tunnel-name>
+#   credentials-file: /etc/cloudflared/<uuid>.json
+#
+# Order matters: cloudflared evaluates ingress rules top-to-bottom and uses the
+# FIRST match, so keep your more specific hostnames (portainer, grafana, ...)
+# ABOVE the wildcard below. Everything lands on http://traefik:80, and the
+# global Traefik routes each Host from the labels in
+# deploy/docker-compose.prod.yml.
+
+ingress:
+  # marketing website
+  - hostname: octoport.itanishq.space
+    service: http://traefik:80
+
+  # control plane REST API + agent WebSocket (wss://octoport-control-plane.itanishq.space/...)
+  - hostname: octoport-control-plane.itanishq.space
+    service: http://traefik:80
+
+  # ... (your existing hostnames: portainer, grafana, traefik, blog, ...) ...
+
+  # every random tunnel subdomain flows here; Traefik's low-priority wildcard
+  # router (octoport-tunnels, priority 1) forwards the Host to the public proxy.
+  # KEEP THIS LAST - anything below it is unreachable.
+  - hostname: "*.itanishq.space"
+    service: http://traefik:80
+
+  # raw TCP tunnels ride the same tunnel (see notes below). cloudflared opens a
+  # plain TCP connection to the proxy on :8091, so the client's TLS stream
+  # (SNI = <sub>.tcp.itanishq.space) passes through untouched and the proxy
+  # still terminates TLS + routes by SNI. Uncomment when merging:
+  # - hostname: "*.tcp.itanishq.space"
+  #   service: tcp://octoport-control-plane:8091
+
+  # unmatched hostnames get a 404
+  - service: http_status:404
+
+# DNS needed once (Cloudflare dashboard, zone itanishq.space):
+#   - `*` CNAME -> <tunnel-id>.cfargotunnel.com  (PROXIED / orange cloud)
+#   - keep existing exact A/AAAA/CNAME records for portainer, grafana, etc.
+# Cloudflare's Universal SSL covers *.itanishq.space (one level deep), so
+# https://<random>.itanishq.space works for every tunnel automatically.
+#
+# RAW TCP tunnels (this host's public IP is DYNAMIC, so we can't rely on a
+# DNS-only A/AAAA record + router forward). Route them through the same tunnel:
+#   - hostname: "*.tcp.itanishq.space"
+#     service: tcp://octoport-control-plane:8091
+# cloudflared opens a plain TCP connection to the control plane on :8091, so
+# the client's own TLS stream (SNI = <sub>.tcp.itanishq.space) flows through
+# untouched and the proxy still terminates TLS + routes by SNI.
+# DNS for it: `*.tcp.itanishq.space` CNAME -> <tunnel-id>.cfargotunnel.com
+# (PROXIED / orange cloud), same as `*`.
+# Access (Cloudflare dashboard -> Access -> Applications):
+#   - TCP application for hostname `*.tcp.itanishq.space`
+#   - policy = Everyone / Allow (public), or restrict to your email(s)
+# Clients connect with the cloudflared binary (no router forward needed):
+#   cloudflared access tcp --hostname <sub>.tcp.itanishq.space --url 127.0.0.1:<local>
+# then point the app at 127.0.0.1:<local> (TLS-encrypted app, see
+# docs/DEPLOY.md "Connecting to a TCP tunnel from a client").
+# NOTE: ensure cloudflared can resolve `octoport-control-plane` (same docker
+# network as the control-plane container, e.g. traefik-public). If cloudflared
+# runs on the host instead, use service: tcp://localhost:8091.
+#
+# The direct path (router HTTPS preset 443 -> host :443 -> container :8091,
+# *.tcp.itanishq.space as a DNS-only A/AAAA) still works as a fallback for
+# LAN access or clients without cloudflared, but breaks whenever the home IP
+# changes — a DDNS updater is required to keep it working.

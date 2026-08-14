@@ -58,11 +58,14 @@ deploy/*.pid
 # Deploy / infra configs (sensitive)
 # ==========================
 deploy/traefik/
-deploy/*.yml
-deploy/*.yaml
-deploy/docker-compose*.yml
-deploy/*.conf
-deploy/*.toml
+deploy/docker-compose.override.yml
+deploy/*.env
+deploy/.env.local
+deploy/.env.*.local
+deploy/certs/
+deploy/volumes/
+deploy/data/
+deploy/*.pid
 # ...but the website's nginx config is not sensitive and IS required by
 # deploy/Dockerfile.website, so keep it tracked.
 !deploy/nginx-website.conf

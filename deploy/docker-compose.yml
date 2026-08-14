@@ -1,0 +1,118 @@
+# octoport local development / self-hosted infrastructure.
+#
+# Everything here is free and open-source:
+#   - YugabyteDB  (enterprise-grade, Postgres-wire-compatible, hash sharding)
+#   - Valkey      (Redis-fork cache, LRU eviction + TTL expiry)
+#   - octoport      (this repo's control plane)
+#
+# Usage:  docker compose up -d
+# If your network cannot reach the Go module proxy during the build:
+#   docker compose build --build-arg GOPROXY=direct control-plane
+services:
+  yugabytedb:
+    image: yugabytedb/yugabyte:latest
+    container_name: octoport-yugabytedb
+    command: yugabyted start --background=false --ui=false
+    environment:
+      - YSQL_PASSWORD=octoport
+    ports:
+      # YSQL (Postgres-compatible) — the control plane connects here
+      - "5433:5433"
+      # YCQL and node/metrics (optional)
+      - "9042:9042"
+      - "7100:7100"
+      - "9100:9100"
+    volumes:
+      - yb_data:/home/yugabyte/var
+    healthcheck:
+      # yugabyted binds YSQL to the container's eth0 address, not loopback,
+      # so probe via the container hostname instead of 127.0.0.1.
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c ': > /dev/tcp/$(hostname)/5433' || exit 1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks: [octoport]
+
+  valkey:
+    # Valkey is a drop-in Redis replacement. We configure LRU eviction so that
+    # the hot tunnel registry self-ages under memory pressure, and rely on TTLs
+    # for the 5-minute idle link expiry.
+    image: valkey/valkey:8-alpine
+    container_name: octoport-valkey
+    command: >
+      valkey-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --save 60 1000
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [octoport]
+
+  control-plane:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.control-plane
+      args:
+        # Override for restricted networks, e.g. `docker compose build --build-arg GOPROXY=direct control-plane`
+        GOPROXY: "https://proxy.golang.org,direct"
+        GOSUMDB: "sum.golang.org"
+    container_name: octoport-control-plane
+    env_file:
+      # `.env.example` supplies safe defaults; the user's real `control-plane/.env`
+      # overrides them (later files win). The hardcoded `environment:` block below
+      # takes precedence over both for the service wiring.
+      - path: ../control-plane/.env.example
+      - path: ../control-plane/.env
+        required: false
+    environment:
+      OCTOPORT_DATABASE_URL: postgres://yugabyte:octoport@yugabytedb:5433/yugabyte?sslmode=disable
+      OCTOPORT_VALKEY_ADDRS: valkey:6379
+      OCTOPORT_PUBLIC_ADDR: :8090
+      OCTOPORT_PUBLIC_TCP_ADDR: :8091
+      OCTOPORT_TCP_PORT: 8091
+      OCTOPORT_API_ADDR: :8080
+      OCTOPORT_AGENT_WS_ADDR: :8081
+      OCTOPORT_ENV: production
+    dns:
+      # Host's primary nameserver (192.168.51.250) can time out, which makes
+      # Docker's embedded DNS report "server misbehaving" for external lookups
+      # like github.com — breaking GitHub OAuth. Pin a reliable resolver.
+      - 8.8.8.8
+      - 1.1.1.1
+    volumes:
+      # TCP-proxy TLS certs (wildcard for *.<OCTOPORT_TCP_BASE>). Only needed
+      # when OCTOPORT_TCP_TLS=true; mount the real certs in production.
+      - ./certs:/certs:ro
+    ports:
+      - "8080:8080" # REST API
+      - "8081:8081" # agent websocket
+      - "8090:8090" # public HTTP proxy
+      - "8091:8091" # public TCP proxy
+    depends_on:
+      yugabytedb:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [octoport]
+
+volumes:
+  yb_data:
+  valkey_data:
+
+networks:
+  octoport:
+    driver: bridge
