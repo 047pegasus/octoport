@@ -23,6 +23,8 @@
      themes, so the hero keeps a deep surface even on the light page. */
   --hero-base: #2A1370;
   --hero-scrim: rgba(26, 12, 74, 0.55);
+  --scrollbar-thumb: #6d3ff0;
+  --page-veil: #140a3c;
 }
 
 .dark {
@@ -41,6 +43,29 @@
 
   --hero-base: #08080c;
   --hero-scrim: rgba(6, 6, 12, 0.72);
+  --scrollbar-thumb: #a78bfa;
+  --page-veil: #06060c;
+}
+
+/* ---------------------------------------------------------------- landing
+   The landing page sits on a full-page animated backdrop in BOTH themes, so
+   its surface is deep regardless of light/dark. Overriding the raw tokens
+   here restyles every Tailwind utility on the page at once (bg-card,
+   text-muted-foreground, border-border, ...) rather than needing per-element
+   overrides, and keeps the docs/download pages untouched. */
+.landing {
+  --background: var(--hero-base);
+  --surface: rgba(14, 8, 38, 0.45);
+  --card: rgba(14, 8, 38, 0.45);
+  --foreground: #ffffff;
+  --muted: rgba(255, 255, 255, 0.07);
+  --muted-foreground: rgba(255, 255, 255, 0.88);
+  --border: rgba(255, 255, 255, 0.14);
+  --primary: #cdbcff;
+  --primary-foreground: #1b1040;
+  --primary-soft: rgba(255, 255, 255, 0.12);
+  --accent: rgba(255, 255, 255, 0.1);
+  --ring: rgba(255, 255, 255, 0.6);
 }
 
 @theme inline {
@@ -97,19 +122,40 @@ body {
   border-radius: 4px;
 }
 
+/* A hairline scrollbar tinted with the brand colour, invisible until the
+   pointer is near it. Firefox gets the same via scrollbar-* properties.
+   `scrollbar-gutter: stable` keeps the layout from shifting as it appears. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: stable;
+}
+html:hover,
+html.is-scrolling {
+  scrollbar-color: color-mix(in oklab, var(--scrollbar-thumb) 85%, transparent) transparent;
+}
+
 ::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 5px;
+  background: transparent;
+  border-radius: 999px;
+  transition: background-color 0.25s ease;
+}
+:hover::-webkit-scrollbar-thumb,
+.is-scrolling::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--scrollbar-thumb) 85%, transparent);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--muted-foreground);
+  background: var(--scrollbar-thumb);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* ------------------------------------------------------------- utilities */
@@ -126,76 +172,225 @@ body {
   }
 }
 
+/* --------------------------------------------------------------- backdrop
+   The shader is fixed to the viewport so the page scrolls over it. The body
+   background (--background, i.e. --hero-base on the landing page) paints
+   underneath, so there is never a bare gap while the canvas resizes. */
+.site-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Content rides above the fixed backdrop.
+   The header is deliberately NOT listed here: it must keep the `position:
+   sticky; z-index: 50` from .site-nav. A `> header` selector is more specific
+   than `.site-nav`, so including it dropped the bar to z-index 1 — and since
+   the hero is pulled up by -5rem and `main` comes later in the DOM, the hero
+   then painted over the nav and swallowed every click. */
+.landing-shell > main,
+.landing-shell > footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* Sections sit directly on the backdrop, so their own fills are removed and
+   readability comes from the per-card glass plus this legibility veil. */
+.landing main > section {
+  position: relative;
+}
+.landing main > section > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* A soft dark veil behind every band of body copy. Without it, text crossing
+   a bright filament in the shader loses contrast as the animation moves. */
+.readable::before {
+  content: '';
+  position: absolute;
+  inset: -2rem -1rem;
+  z-index: 0;
+  border-radius: 2rem;
+  background: radial-gradient(
+    75% 65% at 50% 50%,
+    color-mix(in oklab, var(--page-veil) 72%, transparent) 0%,
+    color-mix(in oklab, var(--page-veil) 46%, transparent) 55%,
+    transparent 82%
+  );
+  pointer-events: none;
+}
+
+/* A tight shadow for edge definition. The earlier wide, dark halo bled into
+   the glyphs and made white type read as grey. */
+.landing main,
+.landing footer {
+  text-shadow: 0 1px 3px rgba(8, 3, 26, 0.55);
+}
+.landing h1,
+.landing h2,
+.landing h3 {
+  text-shadow: 0 1px 4px rgba(8, 3, 26, 0.5);
+}
+/* Controls and code keep crisp edges — a shadow on them just looks smudged. */
+.landing a[class*='bg-primary'],
+.landing code,
+.landing pre,
+.landing table {
+  text-shadow: none;
+}
+
+/* Landing cards are frosted glass. `bg-card` only sets a colour, so the blur
+   is attached here to every card-like surface on the page. */
+.landing main [class*='bg-card'],
+.landing main [class*='bg-muted'] {
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+}
+
+/* The footer logo uses the raster mark. On the landing backdrop the surface
+   is deep in BOTH themes, so it must always be the light-on-dark artwork,
+   regardless of the colour theme. (Logo.astro's rule keys off `.dark`.)
+   The nav mark is an inline SVG in currentColor and needs none of this. */
+.landing .mark-light {
+  display: none;
+}
+.landing .mark-dark {
+  display: block;
+}
+
 /* ------------------------------------------------------------------- nav */
 
+/* A floating pill rather than a full-width bar: the header itself is just a
+   transparent sticky rail, and the visible chrome is the inner pill. */
 .site-nav {
   position: sticky;
   top: 0;
   z-index: 50;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in oklab, var(--background) 80%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  transition:
-    background-color 0.35s ease,
-    border-color 0.35s ease;
+  padding: 0.85rem 1rem;
+  background: transparent;
+  border: 0;
 }
 
-.site-nav .nav-brand,
-.site-nav .nav-link {
-  color: var(--muted-foreground);
+.nav-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  max-width: 60rem;
+  margin-inline: auto;
+  height: 3.25rem;
+  padding-inline: 0.75rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--surface) 78%, transparent);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 10px 30px rgba(8, 4, 25, 0.18);
+  transition:
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
 }
-.site-nav .nav-brand,
-.site-nav .nav-link.is-current {
+
+/* Over the landing backdrop the pill is glass in both themes. */
+/* Darkening glass, not lightening: the pill floats over a live shader, and a
+   white tint pushed link contrast under 3:1 wherever a bright filament
+   passed behind it. */
+.site-nav[data-overlay='true'] .nav-pill {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(16, 9, 42, 0.55);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 14px 40px rgba(8, 4, 25, 0.35);
+}
+.site-nav[data-overlay='true'].is-scrolled .nav-pill {
+  background: rgba(16, 9, 42, 0.72);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+.site-nav[data-overlay='true'] .nav-link {
+  color: rgba(255, 255, 255, 0.86);
+}
+.site-nav[data-overlay='true'] .nav-brand {
+  color: #fff;
+}
+
+.nav-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-inline: 0.4rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--foreground);
 }
-.site-nav .nav-link.is-current {
-  background: var(--primary-soft);
-  color: var(--primary);
+.nav-mark {
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: none;
+  display: block;
 }
-.site-nav .nav-link:hover {
+
+.nav-link {
+  color: var(--muted-foreground);
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease;
+}
+.nav-link:hover {
   background: var(--accent);
   color: var(--foreground);
 }
-.site-nav .mobile-nav {
-  background: color-mix(in oklab, var(--background) 95%, transparent);
+.nav-link.is-current {
+  background: var(--primary-soft);
+  color: var(--foreground);
 }
 
-/* Overlaid on the hero: a transparent glass panel, light type. The hero is a
-   deep surface in BOTH themes, so these colours are theme-independent. */
-.site-nav[data-overlay='true']:not(.is-scrolled) {
-  background: rgba(255, 255, 255, 0.06);
-  border-bottom-color: rgba(255, 255, 255, 0.12);
+/* GitHub sits apart from the page links, behind a hairline divider. */
+.nav-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.8125rem;
+  font-weight: 500;
 }
-.site-nav[data-overlay='true']:not(.is-scrolled) .nav-brand {
-  color: #fff;
+
+.site-nav .mobile-nav {
+  max-width: 60rem;
+  margin: 0.5rem auto 0;
+  border-radius: 1.25rem;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--surface) 92%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
-.site-nav[data-overlay='true']:not(.is-scrolled) .nav-link {
-  color: rgba(255, 255, 255, 0.72);
-}
-.site-nav[data-overlay='true']:not(.is-scrolled) .nav-link:hover,
-.site-nav[data-overlay='true']:not(.is-scrolled) .nav-link.is-current {
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-}
-.site-nav[data-overlay='true']:not(.is-scrolled) .mobile-nav {
-  background: rgba(20, 12, 45, 0.72);
+.site-nav[data-overlay='true'] .mobile-nav {
+  background: rgba(24, 14, 56, 0.86);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 /* ------------------------------------------------------------------ hero */
 
-/* The shader must cover the whole viewport, including the strip behind the
-   overlaid nav — hence the negative top margin that pulls the section up
-   under it, and the matching padding that keeps the content clear.
+/* The hero fills the first screenful. The backdrop is fixed to the viewport
+   (see .site-bg), so nothing needs to be pulled under the nav any more.
    `svh` is used so mobile browser chrome cannot crop the section. */
 .hero {
-  background-color: var(--hero-base);
-  margin-top: -4rem;
-  padding-top: 4rem;
   min-height: 100vh;
   min-height: 100svh;
   display: flex;
   align-items: center;
+  margin-top: -5rem;
+  padding-top: 5rem;
 }
 
 .hero-title {

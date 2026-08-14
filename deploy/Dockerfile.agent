@@ -1,0 +1,44 @@
+# =============================================================================
+# OctoPort agent (CLI) — production image.
+#
+# Built by .github/workflows/build-push.yml and published to GHCR.
+# Build context is the repo root:
+#     docker build -f deploy/Dockerfile.agent -t octoport-agent .
+# =============================================================================
+
+FROM rust:1.79-alpine AS builder
+
+WORKDIR /src
+
+# Dependencies first so the layer caches while only source changes.
+COPY agent/Cargo.toml agent/Cargo.lock ./
+COPY agent/crates/octoport-core/Cargo.toml agent/crates/octoport-core/
+COPY agent/crates/octoport-cli/Cargo.toml agent/crates/octoport-cli/
+
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cargo/git \
+    cargo fetch
+
+COPY agent/ ./
+
+# Production build flags:
+#   CGO_ENABLED=0  fully static, so it runs on a distroless base
+#   -trimpath      strip build-machine paths out of the binary
+#   -ldflags -s -w drop the symbol table and DWARF debug info
+ARG VERSION=dev
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/root/.cache/cargo \
+    CGO_ENABLED=0 cargo build \
+      --release --bin octoport \
+      --manifest-path ./Cargo.toml \
+      -o /out/octoport
+
+# Distroless: no shell, no package manager, runs as non-root user.
+FROM gcr.io/distroless/static-debian12:nonroot
+
+WORKDIR /app
+COPY --from=builder /out/octoport /app/octoport
+
+USER nonroot:nonroot
+
+ENTRYPOINT ["/app/octoport"]

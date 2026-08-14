@@ -2,12 +2,16 @@
 import '../styles/global.css';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
+import SiteBackground from '../components/SiteBackground.astro';
 
 interface Props {
   title: string;
   description: string;
   current?: string;
-  /** Let the page's own background run underneath a transparent nav bar. */
+  /**
+   * Landing treatment: a fixed animated backdrop behind the whole page, a
+   * glass nav pill over it, and the deep-surface token scope.
+   */
   overlayNav?: boolean;
 }
 const { title, description, current, overlayNav = false } = Astro.props;
@@ -58,7 +62,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     </script>
   </head>
 
-  <body class="flex min-h-screen flex-col">
+  <body class:list={["flex min-h-screen flex-col", overlayNav && "landing landing-shell"]}>
     <a
       href="#main"
       class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-card focus:px-4 focus:py-2 focus:text-sm focus:shadow-lg"
@@ -66,9 +70,29 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       Skip to content
     </a>
 
+    {overlayNav && <SiteBackground />}
+
     <Nav current={current} overlay={overlayNav} />
     <main id="main" class="flex-1"><slot /></main>
     <Footer />
+
+    <script>
+      // Reveal the hairline scrollbar only while the page is actually being
+      // scrolled, then fade it back out.
+      let scrollIdle: number;
+      addEventListener(
+        'scroll',
+        () => {
+          document.documentElement.classList.add('is-scrolling');
+          clearTimeout(scrollIdle);
+          scrollIdle = window.setTimeout(
+            () => document.documentElement.classList.remove('is-scrolling'),
+            900,
+          );
+        },
+        { passive: true },
+      );
+    </script>
 
     <script>
       // Scroll reveal. Elements start hidden only once JS confirms it can

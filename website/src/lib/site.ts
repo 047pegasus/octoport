@@ -19,10 +19,12 @@ export const INSTALL_CMD = `curl -sL ${INSTALL_URL} | sh`;
 export const TUNNEL_DOMAIN = 'itanishq.space';
 export const EXAMPLE_URL = `https://k7xq2p9m.${TUNNEL_DOMAIN}`;
 
-/** Primary navigation — Docs, GitHub, Download. */
+/**
+ * Primary navigation. GitHub is deliberately absent: it is rendered
+ * separately in the nav with its own mark, since it leaves the site.
+ */
 export const NAV = [
   { href: '/docs', label: 'Docs', external: false },
-  { href: GITHUB_URL, label: 'GitHub', external: true },
   { href: '/download', label: 'Download', external: false },
 ] as const;
 

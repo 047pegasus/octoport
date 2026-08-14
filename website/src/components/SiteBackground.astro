@@ -1,0 +1,154 @@
+---
+/**
+ * Full-page backdrop. Fixed to the viewport so the page scrolls over it
+ * rather than scrolling it away. Two shaders, chosen by theme:
+ *
+ *   dark  -> MoltenMetal   (swirling caustic filaments)
+ *   light -> GradientWaves (waves rolling toward a hazy horizon)
+ *
+ * The hero keeps a deep base colour in BOTH themes. That is deliberate: the
+ * headline is white, and a white headline needs a dark surface behind it
+ * regardless of the rest of the page. In light mode the hero therefore reads
+ * as a single saturated band at the top of an otherwise pale page.
+ *
+ * Only one shader is ever running — switching themes tears the old one down
+ * before starting the new one, so we never pay for two WebGL contexts.
+ */
+---
+
+<div class="site-bg" data-site-bg aria-hidden="true"></div>
+
+<script>
+  import { mountMoltenMetal } from '../scripts/molten-metal';
+  import { mountGradientWaves } from '../scripts/gradient-waves';
+
+  // Scroll-driven veil. The hero keeps the shader at full brightness; by one
+  // viewport down the veil is fully in, so the backdrop recedes and the
+  // content becomes the focus. Content brightness never changes.
+  const root = document.documentElement;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let ticking = false;
+  const syncVeil = () => {
+    ticking = false;
+    const vh = Math.max(window.innerHeight, 1);
+    // Hold at zero through most of the hero so the first screenful shows the
+    // shader at full brightness, then smoothstep in over roughly the next
+    // viewport, reaching full veil as the second section arrives.
+    const raw = Math.min(Math.max((window.scrollY - vh * 0.3) / (vh * 0.9), 0), 1);
+    const eased = raw * raw * (3 - 2 * raw);
+    root.style.setProperty('--veil-progress', String(eased));
+  };
+  const onScroll = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(syncVeil);
+  };
+
+  if (reduce) {
+    // No scroll-linked effect: settle on a mid veil that reads well anywhere.
+    root.style.setProperty('--veil-progress', '0.85');
+  } else {
+    syncVeil();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+  }
+
+  const host = document.querySelector<HTMLElement>('[data-site-bg]');
+
+  if (host) {
+    let destroy: (() => void) | null = null;
+    let currentTheme: string | null = null;
+
+    const mount = () => {
+      const dark = document.documentElement.classList.contains('dark');
+      const theme = dark ? 'dark' : 'light';
+      if (theme === currentTheme) return;
+      currentTheme = theme;
+
+      destroy?.();
+      destroy = dark
+        ? mountMoltenMetal(host, {
+            // Brand palette: violet -> periwinkle -> white-hot cores.
+            color1: '#5227FF',
+            color2: '#CCCCFF',
+            color3: '#FFFFFF',
+            speed: 0.35,
+            scale: 4,
+            detail: 3,
+            glow: 1.6,
+            coreSize: 0.1,
+            swirl: 1,
+            fold: -0.2,
+            blackPoint: 0.05,
+            brightness: 1.3,
+            colorMode: 'molten',
+            grain: true,
+            grainIntensity: 0.05,
+            mouseInteraction: true,
+            mouseStrength: 0.3,
+          })
+        : mountGradientWaves(host, {
+            // Same three brand colours, mapped horizon -> wave -> crest.
+            // Deep violet fading to periwinkle crests. Pure-white crests
+            // blew out along the near edge and washed the whole band out.
+            horizonColor: '#3B1FA8',
+            waveColor: '#5227FF',
+            crestColor: '#CCCCFF',
+            speed: 0.4,
+            amplitude: 2.5,
+            waveScale: 0.6,
+            waveRatio: 0.9,
+            swell: 35,
+            turbulence: 20,
+            tilt: 1.11,
+            zoom: 1,
+            height: 5.5,
+            fogDepth: 15,
+            detail: 'medium',
+            brightness: 0.95,
+            opacity: 1,
+            mouseInteraction: true,
+            parallaxStrength: 0.5,
+            grain: true,
+            grainIntensity: 0.05,
+          });
+    };
+
+    mount();
+
+    // Re-mount when the theme toggle flips the root class.
+    new MutationObserver(mount).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+  }
+</script>
+
+<style>
+  /* Positioning lives in global.css (.site-bg) so the shell rules and this
+     component cannot disagree about stacking. */
+  .site-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    /* A steady veil across the whole viewport rather than one centred on the
+       hero: content now scrolls over every part of the shader, so contrast
+       has to hold everywhere, not just behind the headline. */
+    /* The veil dims the BACKDROP ONLY — it lives inside .site-bg, which sits
+       below the content layer, so page text is never washed out by it.
+       Its strength is scroll-driven (--veil-progress, set in the script
+       below): the first viewport shows the shader at full brightness, and
+       the veil fades in as you scroll so later sections read against a calm
+       background instead of a busy one. */
+    background: linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--page-veil) 62%, transparent) 0%,
+      color-mix(in oklab, var(--page-veil) 72%, transparent) 45%,
+      color-mix(in oklab, var(--page-veil) 78%, transparent) 100%
+    );
+    opacity: var(--veil-progress, 0);
+    transition: opacity 0.18s linear;
+    will-change: opacity;
+  }
+</style>
