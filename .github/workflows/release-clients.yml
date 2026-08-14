@@ -332,13 +332,17 @@ jobs:
           Copy-Item ../../target/${{ matrix.target }}/release/bundle/msi/octoport-app*.msi dist/ 2>$null
           Copy-Item "agent/target/${{ matrix.target }}/release/octoport-app.exe" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}.exe"
       - name: Sign macOS app (optional)
-        if: matrix.os == 'macos' && secrets.APPLE_CERTIFICATE_BASE64 != ''
+        if: matrix.os == 'macos'
         shell: bash
         continue-on-error: true
         env:
           CERT_B64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           CERT_PASS: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
+          if [ -z "$CERT_B64" ] || [ -z "$CERT_PASS" ]; then
+            echo "Skipping macOS signing - secrets not set"
+            exit 0
+          fi
           set -euo pipefail
           echo "$CERT_B64" | base64 -d > /tmp/octoport.p12
           security create-keychain -p temp temp.keychain
@@ -350,7 +354,7 @@ jobs:
             --options runtime "dist/octoport-app-macos-${{ matrix.arch }}"
 
       - name: Notarise macOS app (optional)
-        if: matrix.os == 'macos' && secrets.APPLE_NOTARIZATION_APPLE_ID != ''
+        if: matrix.os == 'macos'
         shell: bash
         continue-on-error: true
         env:
@@ -358,19 +362,27 @@ jobs:
           TEAM_ID: ${{ secrets.APPLE_NOTARIZATION_TEAM_ID }}
           APP_PASS: ${{ secrets.APPLE_NOTARIZATION_PASSWORD }}
         run: |
+          if [ -z "$APPLE_ID" ] || [ -z "$TEAM_ID" ] || [ -z "$APP_PASS" ]; then
+            echo "Skipping macOS notarization - secrets not set"
+            exit 0
+          fi
           set -euo pipefail
           zip -j /tmp/octoport-app.zip "dist/octoport-app-macos-${{ matrix.arch }}"
           xcrun notarytool submit /tmp/octoport-app.zip \
             --apple-id "$APPLE_ID" --team-id "$TEAM_ID" --password "$APP_PASS" --wait
 
       - name: Sign Windows app (optional)
-        if: matrix.os == 'windows' && secrets.WINDOWS_CERTIFICATE_BASE64 != ''
+        if: matrix.os == 'windows'
         shell: pwsh
         continue-on-error: true
         env:
           CERT_B64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
           CERT_PASS: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         run: |
+          if (-not $env:CERT_B64 -or -not $env:CERT_PASS) {
+            Write-Host "Skipping Windows signing - secrets not set"
+            exit 0
+          }
           $ErrorActionPreference = 'Stop'
           $pfx = Join-Path $env:RUNNER_TEMP 'octoport.pfx'
           [System.IO.File]::WriteAllBytes($pfx, [System.Convert]::FromBase64String($env:CERT_B64))
