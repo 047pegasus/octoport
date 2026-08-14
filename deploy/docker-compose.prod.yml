@@ -1,0 +1,186 @@
+# =============================================================================
+# OctoPort control plane — production stack for the home server.
+#
+# Copy to:  /srv/apps/octoport/docker-compose.yml
+#
+# Follows the same conventions as every other app on this server
+# (see templates/docker-compose.template.yml in the infra repo):
+#   - joins the external `traefik-public` network; the global Traefik routes
+#     to it by Host() and reaches it by container name
+#   - NO `ports:` — nothing is published to the host or the LAN. Traffic
+#     arrives through the Cloudflare Tunnel -> Traefik -> here
+#   - TLS terminates at Cloudflare's edge, so routers use the `web` entrypoint
+#   - database and cache sit on a private network with no route outside
+#   - the watchtower label opts the control plane into automatic redeploys
+# #
+# Secrets live in /srv/apps/octoport/.env (chmod 600, never committed):
+#   OCTOPORT_JWT_SECRET=...        openssl rand -hex 32
+#   OCTOPORT_DB_PASSWORD=...       openssl rand -hex 24
+#   OCTOPORT_GITHUB_CLIENT_ID=...      optional, for GitHub sign-in
+#   OCTOPORT_GITHUB_CLIENT_SECRET=...  optional
+# =============================================================================
+
+services:
+  control-plane:
+    image: ghcr.io/047pegasus/octoport-control-plane:${IMAGE_TAG:-latest}
+    container_name: octoport-control-plane
+    restart: unless-stopped
+
+    environment:
+      OCTOPORT_ENV: production
+
+      # --- public identity ------------------------------------------------
+      # Tunnels are published as <random>.itanishq.space, so the reserved list
+      # must name every other host on this domain or a tunnel could be handed
+      # an address that shadows Grafana, Portainer, Traefik, etc.
+      OCTOPORT_BASE_DOMAIN: itanishq.space
+      # Scheme+host public tunnel URLs are built from, and the base the GitHub
+      # OAuth callback is constructed against.
+      OCTOPORT_PUBLIC_BASE: https://itanishq.space
+      OCTOPORT_OAUTH_REDIRECT_BASE: https://octoport-control-plane.itanishq.space
+      OCTOPORT_RESERVED_SUBDOMAINS: >-
+        www,octoport,octoport-control-plane,
+        portainer,grafana,traefik,checkmate,heartbeat,prometheus,loki,mail,blog,status
+
+      # --- data plane (private network only) -------------------------------
+      OCTOPORT_DATABASE_URL: postgres://yugabyte:${OCTOPORT_DB_PASSWORD}@yugabytedb:5433/yugabyte?sslmode=disable
+      OCTOPORT_VALKEY_ADDRS: valkey:6379
+
+      # --- secrets, from .env ----------------------------------------------
+      OCTOPORT_JWT_SECRET: ${OCTOPORT_JWT_SECRET:?set OCTOPORT_JWT_SECRET in .env}
+      OCTOPORT_GITHUB_CLIENT_ID: ${OCTOPORT_GITHUB_CLIENT_ID:-}
+      OCTOPORT_GITHUB_CLIENT_SECRET: ${OCTOPORT_GITHUB_CLIENT_SECRET:-}
+
+      # --- listeners --------------------------------------------------------
+      # Reached over traefik-public; never published to the host.
+      OCTOPORT_API_ADDR: ":8080"
+      OCTOPORT_AGENT_WS_ADDR: ":8081"
+      OCTOPORT_PUBLIC_ADDR: ":8090"
+      OCTOPORT_PUBLIC_TCP_ADDR: ":8091"
+
+      # TLS is terminated at Cloudflare's edge, so the control plane speaks
+      # plain HTTP to Traefik and does not manage certificates.
+      OCTOPORT_PUBLIC_TLS: "false"
+
+      # --- account limits ---------------------------------------------------
+      OCTOPORT_TUNNEL_IDLE_TIMEOUT: 5m
+      OCTOPORT_TUNNEL_MAX_LIFETIME: 36h
+      OCTOPORT_MAX_TUNNELS_PER_USER: "5"
+      OCTOPORT_RANDOM_DOMAIN_CHARS: "8"
+      OCTOPORT_RATE_LIMIT_PER_MINUTE: "120"
+      OCTOPORT_LOG_LEVEL: info
+
+    depends_on:
+      yugabytedb:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+    networks:
+      - traefik-public
+      - octoport-internal
+
+    labels:
+      - "traefik.enable=true"
+
+      # --- 1. REST API + browser sign-in pages -----------------------------
+      - "traefik.http.routers.octoport-api.rule=Host(`octoport-control-plane.itanishq.space`)"
+      - "traefik.http.routers.octoport-api.entrypoints=web"
+      - "traefik.http.routers.octoport-api.service=octoport-api"
+      - "traefik.http.services.octoport-api.loadbalancer.server.port=8080"
+
+      # --- 2. Agent ingress (WebSocket) ------------------------------------
+      # Same hostname, matched first by path so clients need only one endpoint.
+      - "traefik.http.routers.octoport-agent.rule=Host(`octoport-control-plane.itanishq.space`) && PathPrefix(`/agent/`)"
+      - "traefik.http.routers.octoport-agent.entrypoints=web"
+      - "traefik.http.routers.octoport-agent.priority=100"
+      - "traefik.http.routers.octoport-agent.service=octoport-agent"
+      - "traefik.http.services.octoport-agent.loadbalancer.server.port=8081"
+
+      # --- 3. Public tunnel traffic ----------------------------------------
+      # Catch-all for every other host on the domain. Priority 1 keeps it below
+      # every named app (Grafana, Portainer, ...) so it only picks up what no
+      # other router claimed.
+      - "traefik.http.routers.octoport-tunnels.rule=HostRegexp(`^[a-z0-9-]+\\.itanishq\\.space$`)"
+      - "traefik.http.routers.octoport-tunnels.entrypoints=web"
+      - "traefik.http.routers.octoport-tunnels.priority=1"
+      - "traefik.http.routers.octoport-tunnels.service=octoport-tunnels"
+      - "traefik.http.services.octoport-tunnels.loadbalancer.server.port=8090"
+
+      # Use global watchtower instead of local
+      # - "com.centurylinklabs.watchtower.enable=true"
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------- data ----
+  yugabytedb:
+    image: yugabytedb/yugabyte:2.21.1.0-b271
+    container_name: octoport-yugabytedb
+    restart: unless-stopped
+    command:
+      - bin/yugabyted
+      - start
+      - --daemon=false
+      - --ui=false
+    environment:
+      YSQL_PASSWORD: ${OCTOPORT_DB_PASSWORD:?set OCTOPORT_DB_PASSWORD in .env}
+    volumes:
+      - yugabyte-data:/home/yugabyte/var
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5433 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+    networks:
+      - octoport-internal
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: octoport-valkey
+    restart: unless-stopped
+    command:
+      - valkey-server
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ""
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - octoport-internal
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  # Shared with Traefik; created once with `docker network create traefik-public`.
+  traefik-public:
+    external: true
+    name: traefik-public
+  # Private: only the control plane, the database and the cache are on it.
+  octoport-internal:
+    driver: bridge
+
+volumes:
+  yugabyte-data:
