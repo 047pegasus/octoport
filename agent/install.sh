@@ -23,6 +23,7 @@ Options:
   --cli-only       Install only the CLI
   --gui-only       Install only the GUI
   --both           Install both CLI and GUI (default)
+  --uninstall      Uninstall OctoPort (CLI, GUI, or both)
   --version VER    Version to install (default: latest)
   --repo URL       GitHub repo URL (default: https://github.com/047pegasus/octoport)
   --dest DIR       Install directory for CLI binary (default: /usr/local/bin)
@@ -39,11 +40,13 @@ EOF
 }
 
 # Parse args
+UNINSTALL=false
 while [[ $# -gt 0 ]]; do
   case $1 in
     --cli-only) INSTALL_CLI=true; INSTALL_GUI=false; shift ;;
     --gui-only) INSTALL_CLI=false; INSTALL_GUI=true; shift ;;
     --both) INSTALL_CLI=true; INSTALL_GUI=true; shift ;;
+    --uninstall) UNINSTALL=true; shift ;;
     --version) VERSION="$2"; shift 2 ;;
     --repo) REPO="$2"; shift 2 ;;
     --dest) DEST_DIR="$2"; shift 2 ;;
@@ -79,6 +82,45 @@ if [ "$VERSION" = "latest" ]; then
 else
   BASE_URL="$REPO/releases/download/$VERSION"
   SHA256SUMS_URL="$REPO/releases/download/$VERSION/SHA256SUMS"
+fi
+
+# Uninstall logic
+if [ "$UNINSTALL" = "true" ]; then
+  echo "Uninstalling OctoPort..."
+
+  # CLI binary
+  if [ "$INSTALL_CLI" = "true" ]; then
+    echo "Removing CLI..."
+    sudo rm -f /usr/local/bin/octoport
+    # Debian/Ubuntu
+    sudo apt-get remove --purge octoport 2>/dev/null || true
+    # RHEL/Fedora
+    sudo rpm -e octoport 2>/dev/null || true
+    # macOS
+    sudo pkgutil --forget io.octoport.cli 2>/dev/null || true
+    sudo rm -rf /usr/local/bin/octoport /Applications/OctoPort.app 2>/dev/null || true
+    echo "  CLI removed"
+  fi
+
+  # GUI
+  if [ "$INSTALL_GUI" = "true" ]; then
+    echo "Removing GUI..."
+    # Linux
+    sudo apt-get remove --purge octoport-app 2>/dev/null || true
+    sudo rpm -e octoport-app 2>/dev/null || true
+    # macOS
+    sudo pkgutil --forget io.octoport.gui 2>/dev/null || true
+    sudo rm -rf /Applications/OctoPort.app /opt/octoport-app.AppImage /usr/local/bin/octoport-app 2>/dev/null || true
+    # Windows (via winget/scoop if available, but we just clean up)
+    echo "  GUI removed"
+  fi
+
+  # Config directories
+  rm -rf ~/.config/octoport ~/.config/octoport-app
+  rm -rf ~/.local/share/octoport ~/.local/share/octoport-app
+
+  echo "OctoPort uninstalled."
+  exit 0
 fi
 
 echo "Installing OctoPort ${VERSION} ($OS/$ARCH) from $REPO"
