@@ -2,8 +2,8 @@
 # OctoPort agent (CLI) — production image.
 #
 # Built by .github/workflows/build-push.yml and published to GHCR.
-# Build context is the repo root:
-#     docker build -f deploy/Dockerfile.agent -t octoport-agent .
+# Build context is agent/ directory:
+#     docker build -f deploy/Dockerfile.agent -t octoport-agent agent/
 # =============================================================================
 
 FROM rust:1.79-alpine AS builder
@@ -11,15 +11,15 @@ FROM rust:1.79-alpine AS builder
 WORKDIR /src
 
 # Dependencies first so the layer caches while only source changes.
-COPY agent/Cargo.toml agent/Cargo.lock ./
-COPY agent/crates/octoport-core/Cargo.toml agent/crates/octoport-core/
-COPY agent/crates/octoport-cli/Cargo.toml agent/crates/octoport-cli/
+COPY Cargo.toml Cargo.lock ./
+COPY crates/octoport-core/Cargo.toml crates/octoport-core/
+COPY crates/octoport-cli/Cargo.toml crates/octoport-cli/
 
 RUN --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
     cargo fetch
 
-COPY agent/ ./
+COPY . .
 
 # Production build flags:
 #   CGO_ENABLED=0  fully static, so it runs on a distroless base
