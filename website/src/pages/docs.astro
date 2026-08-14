@@ -1,0 +1,424 @@
+---
+import Layout from '../layouts/Layout.astro';
+import CodeBlock from '../components/CodeBlock.astro';
+import DiagramFlow from '../components/docs/DiagramFlow.astro';
+import DiagramAuth from '../components/docs/DiagramAuth.astro';
+import DiagramLifecycle from '../components/docs/DiagramLifecycle.astro';
+import { GITHUB_URL, LIMITS, INSTALL_CMD, EXAMPLE_URL, RELEASES_URL } from '../lib/site';
+
+const toc = [
+  { id: 'overview', label: 'What OctoPort does' },
+  { id: 'how-it-works', label: 'How it works' },
+  { id: 'install', label: 'Install' },
+  { id: 'signing-in', label: 'Signing in' },
+  { id: 'first-tunnel', label: 'Your first tunnel' },
+  { id: 'tcp', label: 'TCP tunnels' },
+  { id: 'managing', label: 'Managing tunnels' },
+  { id: 'cli', label: 'Command reference' },
+  { id: 'desktop', label: 'Desktop app' },
+  { id: 'lifetimes', label: 'Lifetimes and limits' },
+  { id: 'security', label: 'Security and privacy' },
+  { id: 'verify', label: 'Verifying a download' },
+  { id: 'troubleshooting', label: 'Troubleshooting' },
+];
+
+const cliRows = [
+  ['octoport login', 'Sign in through your browser and remember the session.'],
+  ['octoport whoami', 'Show the signed-in account and how many tunnels you have left.'],
+  ['octoport logout', 'Forget the saved session on this machine.'],
+  ['octoport expose <port>', 'Open a tunnel and keep it running until you stop it.'],
+  ['octoport expose <port> --protocol tcp', 'Open a raw TCP tunnel instead of an HTTP one.'],
+  ['octoport list', 'Show the tunnels currently open on your account.'],
+  ['octoport history [--limit N]', 'Look back at tunnels you opened earlier.'],
+  ['octoport pause <id>', 'Stop serving traffic but keep the address reserved.'],
+  ['octoport resume <id>', 'Start serving a paused tunnel again.'],
+  ['octoport delete <id>', 'Close a tunnel and release its address.'],
+];
+---
+
+<Layout
+  title="Documentation"
+  description="How to use OctoPort: installing the client, signing in, opening HTTP and TCP tunnels, managing them, what the limits are, and how the security model works."
+  current="/docs"
+>
+  <div class="wrap grid gap-10 py-12 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-14 lg:py-16">
+    <!-- ------------------------------------------------------- sidebar -->
+    <aside class="lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)] lg:self-start lg:overflow-y-auto">
+      <details class="lg:hidden" id="toc-details">
+        <summary class="cursor-pointer rounded-xl border border-border/70 bg-card px-4 py-3 text-sm font-semibold">
+          On this page
+        </summary>
+        <nav class="mt-2 rounded-xl border border-border/70 bg-card p-2" aria-label="Table of contents">
+          {toc.map((t) => (
+            <a href={`#${t.id}`} class="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground">
+              {t.label}
+            </a>
+          ))}
+        </nav>
+      </details>
+
+      <nav class="hidden lg:block" aria-label="Table of contents">
+        <p class="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">On this page</p>
+        <ul class="space-y-0.5 border-l border-border">
+          {toc.map((t) => (
+            <li>
+              <a
+                href={`#${t.id}`}
+                data-toc={t.id}
+                class="-ml-px block border-l-2 border-transparent py-1.5 pl-4 text-sm text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+              >
+                {t.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ---------------------------------------------------------- body -->
+    <article class="min-w-0 max-w-3xl">
+      <header>
+        <p class="text-xs font-semibold uppercase tracking-widest text-primary">Documentation</p>
+        <h1 class="mt-2 font-display text-4xl tracking-tight sm:text-5xl">Using OctoPort</h1>
+        <p class="mt-4 text-lg leading-relaxed text-muted-foreground">
+          Everything from a fresh install to a public link — and what is happening while one is
+          open.
+        </p>
+      </header>
+
+      <!-- overview -->
+      <section id="overview" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">What OctoPort does</h2>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          Something running on your machine is normally reachable only from your machine. OctoPort
+          gives it a public web address, so a colleague, a phone, or a service like Stripe can
+          reach it — without deploying your code anywhere or changing anything about your network.
+        </p>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          You run one command. You get a link. When you stop the command, the link stops working.
+          That is the whole product.
+        </p>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          OctoPort is a hosted service — we run the infrastructure that makes the link work. The
+          only thing you install is a small client, and it is the only piece you ever configure.
+        </p>
+      </section>
+
+      <!-- how it works -->
+      <section id="how-it-works" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">How it works</h2>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          Three things are involved: the <strong class="font-semibold text-foreground">client</strong> on
+          your machine, the <strong class="font-semibold text-foreground">OctoPort service</strong> on
+          the internet, and whatever you are running locally.
+        </p>
+
+        <DiagramFlow />
+
+        <p class="leading-relaxed text-muted-foreground">
+          The detail that matters is which way the middle arrow points. Your client reaches
+          <em>out</em> to us and keeps one connection open. Everything a visitor sends travels back
+          down that same connection. Your network sees an ordinary outgoing connection — the kind
+          your browser makes constantly — and nothing on your machine is ever listening for
+          strangers.
+        </p>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          That is why there is nothing to configure. No port forwarding, no firewall rule, no
+          router page, and it works the same on a café network as it does at home.
+        </p>
+      </section>
+
+      <!-- install -->
+      <section id="install" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">Install</h2>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          One command works out your platform and puts a single file on your
+          <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]">PATH</code>. There is no
+          runtime to install alongside it.
+        </p>
+        <CodeBlock code={INSTALL_CMD} label="macOS · Linux" />
+        <p class="leading-relaxed text-muted-foreground">
+          On Windows, or if you would rather not pipe a script into a shell, download the file for
+          your platform from the
+          <a class="text-primary underline underline-offset-4" href={RELEASES_URL} target="_blank" rel="noreferrer noopener">releases page</a>
+          and put it somewhere on your PATH. Either way, check it landed:
+        </p>
+        <CodeBlock code="octoport --version" />
+        <p class="text-sm leading-relaxed text-muted-foreground">
+          Prefer to look before you run? Every release is signed — see
+          <a class="text-primary underline underline-offset-4" href="#verify">verifying a download</a>.
+        </p>
+      </section>
+
+      <!-- signing in -->
+      <section id="signing-in" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">Signing in</h2>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          Tunnels belong to an account, so sign in once before your first one. The client never
+          asks for a password — it opens a page in your browser and waits for you to finish there.
+        </p>
+        <CodeBlock code="octoport login" />
+
+        <DiagramAuth />
+
+        <p class="leading-relaxed text-muted-foreground">
+          On that page you can sign in with an email address, create an account, or continue with
+          GitHub. When you are done the browser tells you to go back to your terminal, and the
+          client picks it up on its own.
+        </p>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          The session is saved on your machine so you only do this once. To check who you are, or
+          to sign out:
+        </p>
+        <CodeBlock code={'octoport whoami\noctoport logout'} />
+      </section>
+
+      <!-- first tunnel -->
+      <section id="first-tunnel" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">Your first tunnel</h2>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          Start whatever you want to share — a dev server, an API, a static site — and note the
+          port number it prints. Then:
+        </p>
+        <CodeBlock code="octoport expose 3000" />
+        <p class="leading-relaxed text-muted-foreground">You get the link straight away:</p>
+        <CodeBlock
+          code={`Public URL: ${EXAMPLE_URL}\nForwarding to http://localhost:3000  ·  tunnel a1b2c3d4\nIdle for 5 minutes and this link closes. Ctrl+C to stop now.`}
+          label="Output"
+        />
+        <p class="leading-relaxed text-muted-foreground">
+          Leave that running — the command <em>is</em> the tunnel. Press Ctrl+C and the link dies
+          immediately. If what you want to share is not on this machine, or is inside a container,
+          give a host as well as a port:
+        </p>
+        <CodeBlock code="octoport expose 192.168.1.50:8080" />
+      </section>
+
+      <!-- tcp -->
+      <section id="tcp" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">TCP tunnels</h2>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          Not everything speaks HTTP. Add <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]">--protocol tcp</code>
+          and OctoPort forwards raw bytes instead, which covers databases, SSH, game servers and
+          anything else built on TCP.
+        </p>
+        <CodeBlock code={'octoport expose 5432 --protocol tcp\noctoport expose 22 --protocol tcp'} />
+        <p class="leading-relaxed text-muted-foreground">
+          The bytes are passed straight through — OctoPort never tries to read or rewrite them.
+        </p>
+      </section>
+
+      <!-- managing -->
+      <section id="managing" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">Managing tunnels</h2>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          Open a second terminal to see what is currently live:
+        </p>
+        <CodeBlock code="octoport list" />
+        <p class="leading-relaxed text-muted-foreground">
+          Each line shows a short id, the public link, the protocol, and where it points on your
+          machine. Use the id with the commands below.
+        </p>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          Pausing is the handy one: it takes the link offline but holds the address, so the same
+          URL works again when you resume. Useful when you have already sent someone the link.
+        </p>
+        <CodeBlock code={'octoport pause a1b2c3d4\noctoport resume a1b2c3d4\noctoport delete a1b2c3d4'} />
+        <p class="leading-relaxed text-muted-foreground">And to look further back:</p>
+        <CodeBlock code="octoport history --limit 50" />
+      </section>
+
+      <!-- cli reference -->
+      <section id="cli" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">Command reference</h2>
+        <div class="mt-5 overflow-x-auto rounded-xl border border-border/70">
+          <table class="w-full border-collapse text-left text-sm">
+            <thead class="bg-muted/60">
+              <tr>
+                <th class="px-4 py-3 font-semibold">Command</th>
+                <th class="px-4 py-3 font-semibold">What it does</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cliRows.map(([cmd, desc]) => (
+                <tr class="border-t border-border/70 align-top">
+                  <td class="whitespace-nowrap px-4 py-3 font-mono text-[12.5px]">{cmd}</td>
+                  <td class="px-4 py-3 text-muted-foreground">{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p class="mt-4 text-sm leading-relaxed text-muted-foreground">
+          Run <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]">octoport --help</code>, or
+          <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]">octoport &lt;command&gt; --help</code>,
+          for the full set of options.
+        </p>
+      </section>
+
+      <!-- desktop -->
+      <section id="desktop" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">Desktop app</h2>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          If you would rather not live in a terminal, the desktop app does everything the CLI does —
+          sign in, open tunnels, pause and resume them, look through your history — with live
+          charts of the traffic going through them. It is a normal application for macOS, Windows
+          and Linux, available on the
+          <a class="text-primary underline underline-offset-4" href="/download">download page</a>.
+        </p>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          Both clients share the same saved session, so signing in on one signs you in on both.
+        </p>
+      </section>
+
+      <!-- lifetimes -->
+      <section id="lifetimes" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">Lifetimes and limits</h2>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          Tunnels are meant to be temporary. Each one has an idle timer that every visit pushes
+          forward, so a link in active use stays up while one nobody is touching quietly goes away.
+        </p>
+
+        <DiagramLifecycle />
+
+        <div class="overflow-x-auto rounded-xl border border-border/70">
+          <table class="w-full border-collapse text-left text-sm">
+            <thead class="bg-muted/60">
+              <tr>
+                <th class="px-4 py-3 font-semibold">Limit</th>
+                <th class="px-4 py-3 font-semibold">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['Idle before the link closes', LIMITS.idleTimeout],
+                ['Longest a tunnel can live', LIMITS.maxLifetime],
+                ['Tunnels open at once', String(LIMITS.concurrentTunnels)],
+              ].map(([k, v]) => (
+                <tr class="border-t border-border/70">
+                  <td class="px-4 py-3">{k}</td>
+                  <td class="px-4 py-3 font-mono text-[12.5px] text-muted-foreground">{v}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- security -->
+      <section id="security" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">Security and privacy</h2>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          Worth reading before you point a tunnel at anything sensitive.
+        </p>
+        <ul class="mt-4 space-y-3 text-muted-foreground">
+          <li class="leading-relaxed">
+            <strong class="font-semibold text-foreground">Nothing on your machine is opened up.</strong>
+            The client makes an outgoing connection and everything travels back down it. You do not
+            forward ports or touch firewall settings.
+          </li>
+          <li class="leading-relaxed">
+            <strong class="font-semibold text-foreground">A random link is not a password.</strong>
+            The {LIMITS.subdomainChars}-character address is impractical to guess, but anyone you
+            send it to can open it — and so can anyone they forward it to.
+          </li>
+          <li class="leading-relaxed">
+            <strong class="font-semibold text-foreground">OctoPort does not add a login screen.</strong>
+            If what you are sharing has no access control of its own, exposing it makes it public.
+            Put a password on anything that needs one.
+          </li>
+          <li class="leading-relaxed">
+            <strong class="font-semibold text-foreground">Your session stays on your machine.</strong>
+            It is written to your user profile with owner-only permissions, and it is never printed
+            in logs or command output.
+          </li>
+          <li class="leading-relaxed">
+            <strong class="font-semibold text-foreground">We pass traffic, we do not keep it.</strong>
+            Request and response bodies are forwarded, not stored. What we do keep is the account
+            record and a log of when tunnels opened and closed.
+          </li>
+        </ul>
+      </section>
+
+      <!-- verify -->
+      <section id="verify" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">Verifying a download</h2>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          Every release is published with a checksum file and a signature, so you can confirm a
+          download is exactly what was built from the public source — and not something altered on
+          the way to you.
+        </p>
+        <CodeBlock
+          code={'# 1. check the file matches the published checksum\nsha256sum -c SHA256SUMS --ignore-missing\n\n# 2. check the checksum file itself was signed by the release workflow\ngh attestation verify octoport-linux-x86_64 --repo 047pegasus/octoport'}
+          label="Verify"
+        />
+        <p class="text-sm leading-relaxed text-muted-foreground">
+          Both files are on the
+          <a class="text-primary underline underline-offset-4" href={RELEASES_URL} target="_blank" rel="noreferrer noopener">releases page</a>
+          next to the binaries.
+        </p>
+      </section>
+
+      <!-- troubleshooting -->
+      <section id="troubleshooting" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">Troubleshooting</h2>
+        <dl class="mt-5 space-y-5">
+          {[
+            ['It says I am not signed in', 'The saved session expired or was never written. Run octoport login again.'],
+            [
+              'The link errors but my app is running',
+              'Check the port is the one your app actually prints on startup. If it runs in a container, use the port mapped to your machine rather than the one inside the container.',
+            ],
+            ['The link stopped working while I was away', 'It idled out. Open it again, or next time pause instead of closing so the address is kept.'],
+            ['I have hit the tunnel limit', 'Run octoport list to see what is still open, and delete anything you have finished with.'],
+            ['My browser warns about the connection', 'Every OctoPort link is HTTPS. If you see a warning, check you copied the whole address, including the https:// at the front.'],
+          ].map(([q, a]) => (
+            <div class="rounded-xl border border-border/70 bg-card p-5">
+              <dt class="font-semibold">{q}</dt>
+              <dd class="mt-1.5 text-sm leading-relaxed text-muted-foreground">{a}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <p class="mt-8 leading-relaxed text-muted-foreground">
+          Still stuck? Open an issue on
+          <a class="text-primary underline underline-offset-4" href={`${GITHUB_URL}/issues`} target="_blank" rel="noreferrer noopener">GitHub</a>
+          with the command you ran and anything it printed.
+        </p>
+      </section>
+    </article>
+  </div>
+
+  <script>
+    // Highlight whichever section is currently in view.
+    const links = new Map<string, HTMLElement>();
+    document.querySelectorAll<HTMLElement>('[data-toc]').forEach((a) => links.set(a.dataset.toc!, a));
+    const sections = Array.from(links.keys())
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => !!el);
+
+    if (sections.length) {
+      const active = (id: string) => {
+        links.forEach((a, key) => {
+          const on = key === id;
+          a.classList.toggle('text-foreground', on);
+          a.classList.toggle('font-medium', on);
+          a.style.borderLeftColor = on ? 'var(--primary)' : '';
+        });
+      };
+      const io = new IntersectionObserver(
+        (entries) => {
+          const visible = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+          if (visible) active(visible.target.id);
+        },
+        { rootMargin: '-80px 0px -65% 0px', threshold: 0 },
+      );
+      sections.forEach((s) => io.observe(s));
+    }
+
+    const details = document.getElementById('toc-details') as HTMLDetailsElement | null;
+    details?.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => (details.open = false)));
+  </script>
+</Layout>

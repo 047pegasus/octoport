@@ -1,0 +1,59 @@
+[workspace]
+resolver = "2"
+members = ["crates/octoport-core", "crates/octoport-cli", "crates/octoport-gui"]
+# The native GUI pulls in winit/glow and needs a desktop session to run; it is
+# built on demand with:  cargo build -p octoport-gui
+default-members = ["crates/octoport-core", "crates/octoport-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/047pegasus/octoport"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "2"
+tokio-tungstenite = "0.24"
+tungstenite = "0.24"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+clap = { version = "4", features = ["derive", "env"] }
+dirs = "6"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# -----------------------------------------------------------------------------
+# Release profile for shipped clients.
+#
+# These are the binaries users download, so they are built for size and speed
+# rather than for debugging:
+#   opt-level = 3   optimise for speed (the agent is on the hot path of every
+#                   byte that passes through a tunnel)
+#   lto        link-time optimisation across crates
+#   codegen-units = 1  better optimisation at the cost of build time
+#   strip      drop symbols: smaller download, and no local paths or symbol
+#              names from the build machine embedded in the artefact
+#   panic = "abort"  no unwinding tables; a panic in a client should end the
+#              process rather than half-unwind a live tunnel
+#   debug = false / debug-assertions = false  never ship a debug build
+# -----------------------------------------------------------------------------
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+debug = false
+debug-assertions = false
+overflow-checks = false
+incremental = false
+
+# Local development keeps fast builds and full assertions.
+[profile.dev]
+debug = true
+debug-assertions = true
+overflow-checks = true

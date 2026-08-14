@@ -1,0 +1,77 @@
+[package]
+name = "octoport-gui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "OctoPort desktop app: native cross-platform GUI for exposing local ports."
+authors = ["OctoPort Team <hello@octoport.io>"]
+homepage = "https://octoport.io"
+repository = "https://github.com/047pegasus/octoport"
+readme = "README.md"
+categories = ["gui", "network-programming"]
+keywords = ["tunnel", "proxy", "reverse-proxy", "expose", "localhost", "gui"]
+
+[[bin]]
+name = "octoport-app"
+path = "src/main.rs"
+
+[dependencies]
+octoport-core = { path = "../octoport-core" }
+dioxus = { version = "0.7", features = ["desktop"] }
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tokio.workspace = true
+futures-util.workspace = true
+log = { version = "0.4", features = ["std"] }
+env_logger = "0.11"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ksni = { version = "0.3.6", default-features = false, features = ["tokio"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+# --- Packaging metadata (cargo-deb, cargo-rpm, cargo-bundle) ---
+[package.metadata.deb]
+maintainer = "OctoPort Team <hello@octoport.io>"
+section = "net"
+priority = "optional"
+depends = "libwebkit2gtk-4.1-0, libssl3, libc6, libgtk-3-0, libayatana-appindicator3-1"
+recommends = "libappindicator3-1"
+description = "OctoPort Desktop — native GUI for exposing local ports to the internet."
+extended-description = """
+OctoPort Desktop provides a native cross-platform GUI for managing secure tunnels
+from public URLs to your local development servers. Features system tray integration,
+real-time traffic charts, and automatic tunnel management.
+"""
+
+[package.metadata.rpm]
+summary = "OctoPort Desktop — native GUI for exposing local ports"
+license = "MIT OR Apache-2.0"
+group = "Applications/Internet"
+requires = "webkit2gtk4.1, openssl-libs, glibc, gtk3, libappindicator-gtk3"
+description = "OctoPort Desktop — native GUI for exposing local ports to the internet."
+long_description = """
+OctoPort Desktop provides a native cross-platform GUI for managing secure tunnels
+from public URLs to your local development servers. Features system tray integration,
+real-time traffic charts, and automatic tunnel management.
+"""
+
+[package.metadata.bundle]
+identifier = "io.octoport.gui"
+name = "OctoPort"
+short-description = "OctoPort Desktop"
+long-description = "Native GUI for exposing local ports to the public internet."
+icon = ["../../assets/octoport-app-icon.png"]
+category = "public.network"
+copyright = "Copyright (c) 2024 OctoPort Team"
+short-version = { include = "Cargo.toml", key = "package.version" }
+long-version = { include = "Cargo.toml", key = "package.version" }
+# macOS
+[package.metadata.bundle.macos]
+signing-identity = "Developer ID Application"
+entitlements = "entitlements.plist"
+# Windows
+[package.metadata.bundle.windows]
+certificate-thumbprint = ""
+digest-algorithm = "sha256"
+timestamp-url = "http://timestamp.digicert.com"

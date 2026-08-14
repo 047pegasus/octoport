@@ -1,0 +1,212 @@
+---
+import Layout from '../layouts/Layout.astro';
+import HeroBackground from '../components/HeroBackground.astro';
+import { GITHUB_URL, LIMITS, INSTALL_CMD } from '../lib/site';
+
+
+const features = [
+  {
+    title: 'One command',
+    body: `Run one command and you get a public HTTPS address on a random ${LIMITS.subdomainChars}-character subdomain. No config file, no project setup, no dashboard to visit first.`,
+    icon: 'bolt',
+  },
+  {
+    title: 'Nothing to open up',
+    body: 'The client dials out to us and holds one connection. No port forwarding, no firewall rules, no router settings — and nothing on your machine ever listens for traffic from the internet.',
+    icon: 'shield',
+  },
+  {
+    title: 'HTTP and TCP',
+    body: 'Web servers and APIs work out of the box. TCP tunnels carry anything else — databases, SSH, whatever speaks bytes — without OctoPort trying to interpret it.',
+    icon: 'layers',
+  },
+  {
+    title: 'Links that clean up after themselves',
+    body: `Quiet for ${LIMITS.idleTimeout} and the link stops working. Nothing you forget about stays online, and nothing outlives ${LIMITS.maxLifetime}.`,
+    icon: 'clock',
+  },
+  {
+    title: 'Terminal or window',
+    body: 'The CLI and the desktop app are the same tool in two shapes. Sign in once and pick whichever suits the moment.',
+    icon: 'window',
+  },
+  {
+    title: 'Signed and open',
+    body: 'Every release is checksummed and signed, and the source is public. You can read exactly what you are about to run.',
+    icon: 'check',
+  },
+];
+
+const steps = [
+  { n: '01', title: 'Install', body: 'One command drops a single binary on your PATH.', code: INSTALL_CMD },
+  { n: '02', title: 'Sign in', body: 'Your browser opens. No password is ever typed into the terminal.', code: 'octoport login' },
+  { n: '03', title: 'Share it', body: 'You get a public URL straight away. Ctrl+C when you are done.', code: 'octoport expose 3000' },
+];
+
+const useCases = [
+  ['Webhooks that need a real URL', 'Point Stripe, GitHub or Twilio at the handler running on your laptop — breakpoints and all.'],
+  ['Showing someone your branch', 'Send a link to what you are running right now. Close the terminal and the link is gone.'],
+  ['Testing on a real phone', 'Open your dev server on a device over HTTPS, with no proxy setup and no certificate warnings.'],
+  ['Reaching a database or SSH', 'Forward a TCP port when you need to get at a machine from somewhere else.'],
+];
+
+const icons: Record<string, string> = {
+  bolt: 'M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z',
+  layers: 'M12 3 3 7.5l9 4.5 9-4.5zM3 12.5 12 17l9-4.5M3 17 12 21.5 21 17',
+  shield: 'M12 3 5 6v5.5c0 4.2 2.9 8 7 9.5 4.1-1.5 7-5.3 7-9.5V6z',
+  clock: 'M12 7v5l3.5 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+  window: 'M3 5h18v14H3zM3 9.5h18',
+  check: 'm8.5 12.5 2.5 2.5 4.5-5M12 3 5 6v5.5c0 4.2 2.9 8 7 9.5 4.1-1.5 7-5.3 7-9.5V6z',
+};
+---
+
+<Layout
+  title="Put localhost on the internet"
+  description="OctoPort gives any port on your machine a public HTTPS address in one command. No port forwarding, no firewall changes, and links that expire on their own."
+  current="/"
+>
+  <!-- ------------------------------------------------------------- hero -->
+  <section class="hero relative isolate overflow-hidden">
+    <HeroBackground />
+
+    <div class="wrap relative py-28 sm:py-36 lg:py-44">
+      <div class="mx-auto max-w-3xl text-center">
+        <p class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white/80 backdrop-blur-sm">
+          <span class="h-1.5 w-1.5 rounded-full bg-white/90"></span>
+          Free while in beta
+        </p>
+
+        <h1 class="hero-title mt-7 text-balance text-5xl leading-[1.06] tracking-tight text-white sm:text-7xl lg:text-[5.5rem]">
+          Put localhost<br class="hidden sm:block" />
+          on the internet
+        </h1>
+
+        <p class="mx-auto mt-6 max-w-lg text-pretty text-base leading-relaxed text-white/70 sm:text-lg">
+          One command turns a port on your machine into a public HTTPS link —
+          and the link closes itself when you are done with it.
+        </p>
+
+        <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
+          <a
+            href="/download"
+            class="inline-flex h-11 items-center rounded-xl bg-white px-6 text-sm font-semibold text-[#1a1030] transition hover:bg-white/90 active:scale-[0.98]"
+          >
+            Download
+          </a>
+          <a
+            href="/docs"
+            class="inline-flex h-11 items-center rounded-xl border border-white/25 bg-white/5 px-6 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/15 active:scale-[0.98]"
+          >
+            How it works
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ steps -->
+  <section class="wrap py-20 sm:py-28">
+    <div class="mx-auto max-w-2xl text-center">
+      <h2 class="font-display text-3xl tracking-tight sm:text-4xl">Three commands, start to finish</h2>
+      <p class="mt-3 text-muted-foreground">The longest part is signing in.</p>
+    </div>
+
+    <ol class="mx-auto mt-12 grid max-w-4xl gap-4 sm:grid-cols-3">
+      {
+        steps.map((s) => (
+          <li class="reveal rounded-2xl border border-border/70 bg-card p-6">
+            <p class="font-mono text-xs text-primary">{s.n}</p>
+            <h3 class="mt-2 font-semibold">{s.title}</h3>
+            <code class="mt-3 block overflow-x-auto rounded-lg bg-muted/70 px-3 py-2.5 font-mono text-[11.5px]">
+              {s.code}
+            </code>
+            <p class="mt-3 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <!-- --------------------------------------------------------- features -->
+  <section class="border-y border-border/70 bg-muted/25 py-20 sm:py-28">
+    <div class="wrap">
+      <div class="mx-auto max-w-2xl text-center">
+        <h2 class="font-display text-3xl tracking-tight sm:text-4xl">What you get</h2>
+        <p class="mt-3 text-muted-foreground">
+          A tunnel is a small thing to need and an irritating thing to arrange. This is the short
+          version.
+        </p>
+      </div>
+
+      <ul class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {
+          features.map((f) => (
+            <li class="reveal rounded-2xl border border-border/70 bg-card p-6 transition-colors hover:border-primary/40">
+              <span
+                class="grid h-10 w-10 place-items-center rounded-xl text-primary"
+                style="background: var(--primary-soft)"
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d={icons[f.icon]} />
+                </svg>
+              </span>
+              <h3 class="mt-4 font-semibold">{f.title}</h3>
+              <p class="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- -------------------------------------------------------- use cases -->
+  <section class="wrap py-20 sm:py-28">
+    <div class="mx-auto max-w-2xl text-center">
+      <h2 class="font-display text-3xl tracking-tight sm:text-4xl">What people use it for</h2>
+    </div>
+
+    <div class="mx-auto mt-12 grid max-w-4xl gap-x-10 gap-y-8 sm:grid-cols-2">
+      {
+        useCases.map(([title, body]) => (
+          <div class="reveal border-l-2 border-border pl-5">
+            <h3 class="font-semibold">{title}</h3>
+            <p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <!-- -------------------------------------------------------------- cta -->
+  <section class="wrap pb-10">
+    <div
+      class="reveal overflow-hidden rounded-3xl border border-border/70 px-6 py-16 text-center sm:px-12"
+      style="background: var(--primary-soft)"
+    >
+      <h2 class="font-display text-3xl tracking-tight sm:text-4xl">Open your first tunnel</h2>
+      <p class="mx-auto mt-3 max-w-md text-muted-foreground">
+        Install the client, sign in, share a port. It takes about a minute.
+      </p>
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+        <a
+          href="/download"
+          class="inline-flex h-11 items-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition hover:opacity-90 active:scale-[0.98]"
+        >
+          Get OctoPort
+        </a>
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noreferrer noopener"
+          class="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-6 text-sm font-semibold transition hover:bg-accent active:scale-[0.98]"
+        >
+          <svg viewBox="0 0 16 16" class="h-4 w-4" fill="currentColor" aria-hidden="true">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path>
+          </svg>
+          Source
+        </a>
+      </div>
+    </div>
+  </section>
+</Layout>

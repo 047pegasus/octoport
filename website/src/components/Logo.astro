@@ -1,0 +1,47 @@
+---
+/**
+ * OctoPort wordmark. Two raster variants are shipped because the mark is white
+ * + periwinkle: the light-mode file remaps the white strokes to ink so the
+ * logo stays legible on a pale background. CSS swaps them on theme change, so
+ * there is no flash and no JS involved.
+ */
+interface Props {
+  size?: number;
+  withText?: boolean;
+  class?: string;
+}
+const { size = 30, withText = true, class: cls = '' } = Astro.props;
+---
+
+<span class={`inline-flex items-center gap-2.5 ${cls}`}>
+  <picture class="shrink-0">
+    <img
+      src="/brand/mark-light.png"
+      alt=""
+      width={size}
+      height={size}
+      decoding="async"
+      class="mark-light block"
+      style={`width:${size}px;height:${size}px`}
+    />
+    <img
+      src="/brand/mark-dark.png"
+      alt=""
+      width={size}
+      height={size}
+      decoding="async"
+      class="mark-dark hidden"
+      style={`width:${size}px;height:${size}px`}
+    />
+  </picture>
+  {withText && <span class="font-semibold tracking-tight text-[1.0625rem]">OctoPort</span>}
+</span>
+
+<style is:global>
+  .dark .mark-light {
+    display: none;
+  }
+  .dark .mark-dark {
+    display: block;
+  }
+</style>

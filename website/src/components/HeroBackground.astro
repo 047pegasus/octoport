@@ -1,0 +1,107 @@
+---
+/**
+ * Hero backdrop. Two different shaders, chosen by theme:
+ *
+ *   dark  -> MoltenMetal   (swirling caustic filaments)
+ *   light -> GradientWaves (waves rolling toward a hazy horizon)
+ *
+ * The hero keeps a deep base colour in BOTH themes. That is deliberate: the
+ * headline is white, and a white headline needs a dark surface behind it
+ * regardless of the rest of the page. In light mode the hero therefore reads
+ * as a single saturated band at the top of an otherwise pale page.
+ *
+ * Only one shader is ever running — switching themes tears the old one down
+ * before starting the new one, so we never pay for two WebGL contexts.
+ */
+---
+
+<div class="hero-bg" data-hero-bg aria-hidden="true"></div>
+
+<script>
+  import { mountMoltenMetal } from '../scripts/molten-metal';
+  import { mountGradientWaves } from '../scripts/gradient-waves';
+
+  const host = document.querySelector<HTMLElement>('[data-hero-bg]');
+
+  if (host) {
+    let destroy: (() => void) | null = null;
+    let currentTheme: string | null = null;
+
+    const mount = () => {
+      const dark = document.documentElement.classList.contains('dark');
+      const theme = dark ? 'dark' : 'light';
+      if (theme === currentTheme) return;
+      currentTheme = theme;
+
+      destroy?.();
+      destroy = dark
+        ? mountMoltenMetal(host, {
+            // Brand palette: violet -> periwinkle -> white-hot cores.
+            color1: '#5227FF',
+            color2: '#CCCCFF',
+            color3: '#FFFFFF',
+            speed: 0.35,
+            scale: 4,
+            detail: 3,
+            glow: 1.6,
+            coreSize: 0.1,
+            swirl: 1,
+            fold: -0.2,
+            blackPoint: 0.05,
+            brightness: 1.3,
+            colorMode: 'molten',
+            grain: true,
+            grainIntensity: 0.05,
+            mouseInteraction: true,
+            mouseStrength: 0.3,
+          })
+        : mountGradientWaves(host, {
+            // Same three brand colours, mapped horizon -> wave -> crest.
+            horizonColor: '#5227FF',
+            waveColor: '#CCCCFF',
+            crestColor: '#FFFFFF',
+            speed: 0.4,
+            amplitude: 2.5,
+            waveScale: 0.6,
+            waveRatio: 0.9,
+            swell: 35,
+            turbulence: 20,
+            tilt: 1.11,
+            zoom: 1,
+            height: 5.5,
+            fogDepth: 15,
+            detail: 'medium',
+            brightness: 1,
+            opacity: 1,
+            mouseInteraction: true,
+            parallaxStrength: 0.5,
+            grain: true,
+            grainIntensity: 0.05,
+          });
+    };
+
+    mount();
+
+    // Re-mount when the theme toggle flips the root class.
+    new MutationObserver(mount).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+  }
+</script>
+
+<style>
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  /* Keep the middle calm so the headline never fights the animation. */
+  .hero-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(115% 80% at 50% 42%, rgba(6, 6, 12, 0.72) 0%, rgba(6, 6, 12, 0.28) 45%, transparent 75%);
+  }
+</style>

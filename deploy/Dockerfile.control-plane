@@ -1,0 +1,46 @@
+# =============================================================================
+# OctoPort control plane — production image.
+#
+# Built by .github/workflows/build-push-control-plane.yml and published to
+# GHCR; Watchtower on the home server deploys it. Build context is the repo
+# root:
+#     docker build -f deploy/Dockerfile.control-plane -t octoport-control-plane .
+# =============================================================================
+
+FROM golang:1.26-alpine AS builder
+
+WORKDIR /src
+
+# Dependencies first so the layer caches while only source changes.
+COPY control-plane/go.mod control-plane/go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+
+COPY control-plane/ ./
+
+# Production build flags:
+#   CGO_ENABLED=0  fully static, so it runs on a distroless base
+#   -trimpath      strip build-machine paths out of the binary
+#   -ldflags -s -w drop the symbol table and DWARF debug info
+ARG VERSION=dev
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build \
+      -trimpath \
+      -ldflags="-s -w -X main.version=${VERSION}" \
+      -o /out/octoport-server ./cmd/server
+
+# Distroless: no shell, no package manager, and runs as a non-root user, so a
+# compromised process has almost nothing to work with.
+FROM gcr.io/distroless/static-debian12:nonroot
+
+WORKDIR /app
+COPY --from=builder /out/octoport-server /app/octoport-server
+
+USER nonroot:nonroot
+
+# 8080 REST API · 8081 agent ingress · 8090 public HTTP · 8091 public TCP.
+# Documentation only — no ports are published in production; Traefik reaches
+# the container over the traefik-public network.
+EXPOSE 8080 8081 8090 8091
+
+ENTRYPOINT ["/app/octoport-server"]

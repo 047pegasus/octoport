@@ -1,0 +1,62 @@
+---
+/** The browser-based sign-in the CLI and desktop app both use. */
+---
+
+<figure class="my-7">
+  <svg
+    viewBox="0 0 720 200"
+    role="img"
+    aria-labelledby="auth-title auth-desc"
+    class="w-full rounded-xl border border-border/80 bg-card p-3"
+  >
+    <title id="auth-title">Browser sign-in flow</title>
+    <desc id="auth-desc">
+      The client opens a sign-in page in your browser and waits. You sign in with email or
+      GitHub, the page hands the session back, and the client saves it on your machine.
+    </desc>
+
+    <defs>
+      <marker id="auth-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0 0 10 5 0 10z" fill="var(--muted-foreground)"></path>
+      </marker>
+    </defs>
+
+    <g font-family="var(--font-sans)" font-size="12" fill="var(--foreground)">
+      {
+        [
+          ['1', 'octoport login', 'opens your browser'],
+          ['2', 'Browser sign-in', 'email + password, or GitHub'],
+          ['3', 'Sent back to the client', 'the wait ends'],
+          ['4', 'Session saved', 'on your machine only'],
+        ].map(([n, title, sub], i) => {
+          const x = 14 + i * 178;
+          return (
+            <g>
+              <rect x={x} y="52" width="158" height="80" rx="11" fill="var(--muted)" stroke="var(--border)" />
+              <circle cx={x + 24} cy="76" r="11" fill="var(--primary)" opacity="0.16" />
+              <text x={x + 24} y="80" text-anchor="middle" font-size="11" font-weight="700" fill="var(--primary)">
+                {n}
+              </text>
+              <text x={x + 44} y="80" font-weight="600" font-size="11.5">
+                {title}
+              </text>
+              <text x={x + 16} y="106" fill="var(--muted-foreground)" font-size="10.5">
+                {sub}
+              </text>
+            </g>
+          );
+        })
+      }
+
+      <g stroke="var(--muted-foreground)" stroke-width="1.4" fill="none" marker-end="url(#auth-arrow)">
+        <path d="M176 92 H186"></path>
+        <path d="M354 92 H364"></path>
+        <path d="M532 92 H542"></path>
+      </g>
+
+      <text x="360" y="170" text-anchor="middle" font-size="10.5" fill="var(--muted-foreground)">
+        Your password is only ever typed into the browser — never into the terminal.
+      </text>
+    </g>
+  </svg>
+</figure>

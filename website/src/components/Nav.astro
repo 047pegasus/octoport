@@ -1,0 +1,137 @@
+---
+import { NAV } from '../lib/site';
+
+interface Props {
+  current?: string;
+}
+const { current = '' } = Astro.props;
+---
+
+<header
+  class="sticky top-0 z-50 border-b border-border/70 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/65"
+>
+  <div class="wrap flex h-16 items-center justify-between gap-4">
+    <a
+      href="/"
+      class="rounded-md font-semibold tracking-tight text-[1.0625rem]"
+      aria-label="OctoPort — home"
+    >
+      OctoPort
+    </a>
+
+    <nav class="hidden items-center gap-1 md:flex" aria-label="Primary">
+      {
+        NAV.map((l) => (
+          <a
+            href={l.href}
+            target={l.external ? '_blank' : undefined}
+            rel={l.external ? 'noreferrer noopener' : undefined}
+            aria-current={current === l.href ? 'page' : undefined}
+            class:list={[
+              'rounded-lg px-3.5 py-2 text-sm font-medium transition-colors',
+              current === l.href
+                ? 'text-primary'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+            ]}
+            style={current === l.href ? 'background: var(--primary-soft)' : undefined}
+          >
+            {l.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="flex items-center gap-1">
+      <button
+        id="theme-toggle"
+        type="button"
+        class="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        aria-label="Toggle colour theme"
+      >
+        <svg
+          class="hidden h-[18px] w-[18px] dark:block"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4 1.4-1.4"
+          ></path>
+        </svg>
+        <svg
+          class="h-[18px] w-[18px] dark:hidden"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8"></path>
+        </svg>
+      </button>
+
+      <button
+        id="menu-toggle"
+        type="button"
+        class="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+        aria-label="Toggle navigation menu"
+        aria-expanded="false"
+        aria-controls="mobile-nav"
+      >
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <nav
+    id="mobile-nav"
+    hidden
+    class="border-t border-border/70 bg-background/95 px-5 py-3 backdrop-blur-xl md:hidden"
+    aria-label="Mobile"
+  >
+    {
+      NAV.map((l) => (
+        <a
+          href={l.href}
+          target={l.external ? '_blank' : undefined}
+          rel={l.external ? 'noreferrer noopener' : undefined}
+          class="block rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          {l.label}
+        </a>
+      ))
+    }
+  </nav>
+</header>
+
+<script>
+  // Theme toggle — the initial class is set by an inline script in <head>,
+  // so this only handles user-driven changes.
+  const root = document.documentElement;
+  document.getElementById('theme-toggle')?.addEventListener('click', () => {
+    const dark = !root.classList.contains('dark');
+    root.classList.toggle('dark', dark);
+    try {
+      localStorage.setItem('octoport-theme', dark ? 'dark' : 'light');
+    } catch {
+      /* storage blocked — the toggle still works for this page view */
+    }
+  });
+
+  // Mobile menu
+  const menuBtn = document.getElementById('menu-toggle');
+  const menu = document.getElementById('mobile-nav');
+  menuBtn?.addEventListener('click', () => {
+    const open = menu?.hasAttribute('hidden');
+    if (open) menu?.removeAttribute('hidden');
+    else menu?.setAttribute('hidden', '');
+    menuBtn.setAttribute('aria-expanded', String(!!open));
+  });
+</script>

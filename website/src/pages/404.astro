@@ -1,0 +1,28 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Page not found" description="That page doesn't exist on octoport.itanishq.space.">
+  <section class="wrap flex min-h-[60vh] flex-col items-center justify-center py-20 text-center">
+    <p class="font-mono text-sm text-primary">404</p>
+    <h1 class="mt-3 font-display text-4xl tracking-tight sm:text-5xl">Nothing here</h1>
+    <p class="mt-4 max-w-md text-muted-foreground">
+      That page doesn't exist. If you were following a tunnel link, it has probably expired —
+      tunnels close themselves after a few idle minutes.
+    </p>
+    <div class="mt-8 flex flex-wrap justify-center gap-3">
+      <a
+        href="/"
+        class="inline-flex h-11 items-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+      >
+        Home
+      </a>
+      <a
+        href="/docs"
+        class="inline-flex h-11 items-center rounded-xl border border-border bg-card px-6 text-sm font-semibold transition hover:bg-accent"
+      >
+        Docs
+      </a>
+    </div>
+  </section>
+</Layout>

@@ -1,0 +1,228 @@
+# =============================================================================
+# OctoPort — comprehensive .gitignore
+# Covers: Rust (agent), Go (control-plane), Node/Astro (website), Docker, IDEs, OS
+# =============================================================================
+
+# ==========================
+# Rust (agent workspace)
+# ==========================
+agent/target/
+agent/**/target/
+**/Cargo.lock
+**/*.rs.bk
+**/*.orig
+
+# ==========================
+# Go (control-plane)
+# ==========================
+control-plane/expose-server
+control-plane/*.exe
+control-plane/*.test
+control-plane/coverage.out
+control-plane/*.prof
+control-plane/vendor/
+control-plane/.env
+control-plane/.env.*
+
+# ==========================
+# Node / Astro (website)
+# ==========================
+website/node_modules/
+website/dist/
+website/.astro/
+website/.svelte-kit/
+website/build/
+website/.env
+website/.env.local
+website/.env.*.local
+website/*.log
+website/npm-debug.log*
+website/yarn-debug.log*
+website/yarn-error.log*
+website/pnpm-debug.log*
+
+# ==========================
+# Docker
+# ==========================
+deploy/*.tar
+deploy/*.tar.gz
+deploy/docker-compose.override.yml
+deploy/*.env
+deploy/.env.local
+deploy/.env.*.local
+deploy/certs/
+deploy/volumes/
+deploy/data/
+deploy/*.pid
+
+# ==========================
+# Deploy / infra configs (sensitive)
+# ==========================
+deploy/traefik/
+deploy/*.yml
+deploy/*.yaml
+deploy/docker-compose*.yml
+deploy/*.conf
+deploy/*.toml
+
+# ==========================
+# Sensitive docs / deployment info
+# ==========================
+docs/DEPLOY.md
+docs/OPERATIONS.md
+docs/RELEASING.md
+**/deploy-*.md
+**/infra-*.md
+
+# ==========================
+# Build artifacts / dist
+# ==========================
+**/target/
+**/dist/
+**/build/
+**/out/
+**/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+*.o
+*.obj
+
+# ==========================
+# Environment / secrets
+# ==========================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.cer
+*.der
+secrets/
+*.secret
+
+# ==========================
+# Logs
+# ==========================
+*.log
+*.log.*
+*.out
+*.err
+nohup.out
+
+# ==========================
+# IDE / Editor
+# ==========================
+# VS Code
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.swp
+*.swo
+*~
+
+# IntelliJ / JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Vim/Neovim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+\#*\#
+*.elc
+.elpa/
+
+# ==========================
+# OS generated
+# ==========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ==========================
+# Testing / coverage
+# ==========================
+coverage/
+*.lcov
+*.coverage
+cobertura.xml
+jacoco.exec
+*.gcno
+*.gcda
+*.gcov
+
+# ==========================
+# Package managers
+# ==========================
+# Cargo
+Cargo.lock
+
+# npm/yarn/pnpm
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Go
+go.sum
+go.work
+
+# ==========================
+# Misc / temp
+# ==========================
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+*.rej
+*.patch
+*.diff
+
+# ==========================
+# Terraform / infra (if any)
+# ==========================
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+.terraform/
+*.tfplan
+
+# ==========================
+# Git
+# ==========================
+.git/
+.gitconfig
+.gitignore.local
+
+# ==========================
+# Allow certain files that might otherwise be ignored
+# ==========================
+!.gitignore
+!.github/
+!README.md
+!LICENSE
+!CHANGELOG.md
+!CONTRIBUTING.md
+!CODE_OF_CONDUCT.md
+!SECURITY.md

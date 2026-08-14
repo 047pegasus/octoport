@@ -1,0 +1,70 @@
+[package]
+name = "octoport-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "OctoPort CLI: open local ports to the public internet with random subdomains."
+authors = ["OctoPort Team <hello@octoport.io>"]
+homepage = "https://octoport.io"
+repository = "https://github.com/047pegasus/octoport"
+readme = "README.md"
+categories = ["command-line-utilities", "network-programming"]
+keywords = ["tunnel", "proxy", "reverse-proxy", "expose", "localhost"]
+
+[[bin]]
+name = "octoport"
+path = "src/main.rs"
+
+[dependencies]
+octoport-core = { path = "../octoport-core" }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+dirs.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# --- Packaging metadata (cargo-deb, cargo-rpm, cargo-bundle) ---
+[package.metadata.deb]
+maintainer = "OctoPort Team <hello@octoport.io>"
+section = "net"
+priority = "optional"
+depends = "libssl3, libc6"
+description = "OctoPort CLI — open local ports to the public internet on random subdomains."
+extended-description = """
+OctoPort creates secure tunnels from a public URL to your local development server.
+Perfect for testing webhooks, sharing local sites, or accessing services behind NAT.
+"""
+
+[package.metadata.rpm]
+summary = "OctoPort CLI — open local ports to the public internet"
+license = "MIT OR Apache-2.0"
+group = "Applications/Internet"
+requires = "openssl-libs, glibc"
+description = "OctoPort CLI — open local ports to the public internet on random subdomains."
+long_description = """
+OctoPort creates secure tunnels from a public URL to your local development server.
+Perfect for testing webhooks, sharing local sites, or accessing services behind NAT.
+"""
+
+[package.metadata.bundle]
+identifier = "io.octoport.cli"
+name = "octoport"
+short-description = "OctoPort CLI"
+long-description = "Open local ports to the public internet on random subdomains."
+icon = ["../../assets/octoport-app-icon.png"]
+category = "public.network"
+copyright = "Copyright (c) 2024 OctoPort Team"
+short-version = { include = "Cargo.toml", key = "package.version" }
+long-version = { include = "Cargo.toml", key = "package.version" }
+# macOS
+[package.metadata.bundle.macos]
+signing-identity = "Developer ID Application"
+entitlements = "entitlements.plist"
+# Windows
+[package.metadata.bundle.windows]
+certificate-thumbprint = ""
+digest-algorithm = "sha256"
+timestamp-url = "http://timestamp.digicert.com"

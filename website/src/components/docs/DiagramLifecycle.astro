@@ -1,0 +1,58 @@
+---
+import { LIMITS } from '../../lib/site';
+---
+
+<figure class="my-7">
+  <svg
+    viewBox="0 0 720 210"
+    role="img"
+    aria-labelledby="life-title life-desc"
+    class="w-full rounded-xl border border-border/80 bg-card p-3"
+  >
+    <title id="life-title">Tunnel lifetime and idle expiry</title>
+    <desc id="life-desc">
+      Each visit slides the tunnel's idle timer forward. After five idle minutes the link expires
+      and the address is released.
+    </desc>
+
+    <g font-family="var(--font-sans)" font-size="11.5" fill="var(--foreground)">
+      <!-- timeline -->
+      <line x1="40" y1="104" x2="680" y2="104" stroke="var(--border)" stroke-width="2"></line>
+
+      <!-- traffic ticks resetting the timer -->
+      {
+        [110, 190, 268, 330].map((x) => (
+          <g>
+            <line x1={x} y1="88" x2={x} y2="120" stroke="var(--primary)" stroke-width="2" />
+            <text x={x} y="80" text-anchor="middle" font-size="10" fill="var(--primary)">
+              request
+            </text>
+          </g>
+        ))
+      }
+
+      <!-- idle window -->
+      <rect x="330" y="92" width="250" height="24" rx="6" fill="var(--muted)" stroke="var(--border)"></rect>
+      <text x="455" y="108" text-anchor="middle" font-size="10.5" fill="var(--muted-foreground)">
+        idle window — {LIMITS.idleTimeout}
+      </text>
+
+      <!-- expiry -->
+      <line x1="580" y1="80" x2="580" y2="128" stroke="var(--foreground)" stroke-width="2" stroke-dasharray="3 3"
+      ></line>
+      <text x="588" y="84" font-size="10.5" font-weight="600">expires</text>
+      <text x="588" y="99" font-size="10" fill="var(--muted-foreground)">link closed,</text>
+      <text x="588" y="112" font-size="10" fill="var(--muted-foreground)">address freed</text>
+
+      <text x="40" y="150" font-size="10.5" fill="var(--muted-foreground)">
+        Every hit slides the timer forward, so a tunnel in active use never expires underneath you.
+      </text>
+      <text x="40" y="168" font-size="10.5" fill="var(--muted-foreground)">
+        A hard ceiling of {LIMITS.maxLifetime} applies regardless of traffic.
+      </text>
+      <text x="40" y="186" font-size="10.5" fill="var(--muted-foreground)">
+        Ctrl+C ends it immediately; `octoport pause` keeps the subdomain but stops routing.
+      </text>
+    </g>
+  </svg>
+</figure>

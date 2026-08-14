@@ -1,0 +1,113 @@
+---
+/**
+ * How a public request reaches your machine. Theme-aware via CSS vars and
+ * fluid via viewBox — no fixed pixel width.
+ */
+---
+
+<figure class="my-7">
+  <svg
+    viewBox="0 0 720 300"
+    role="img"
+    aria-labelledby="arch-title arch-desc"
+    class="w-full rounded-xl border border-border/80 bg-card p-3"
+  >
+    <title id="arch-title">How a request reaches your local app</title>
+    <desc id="arch-desc">
+      A visitor's browser reaches the OctoPort service, which looks up which client owns that
+      address and forwards the request down the connection your client already opened. The client
+      passes it to your local app and the response travels back the same way.
+    </desc>
+
+    <defs>
+      <marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0 0 10 5 0 10z" fill="var(--muted-foreground)"></path>
+      </marker>
+    </defs>
+
+    <g
+      font-family="var(--font-sans)"
+      font-size="12"
+      fill="var(--foreground)"
+      stroke-linecap="round"
+    >
+      <!-- visitor -->
+      <rect x="12" y="112" width="112" height="52" rx="10" fill="var(--muted)" stroke="var(--border)"></rect>
+      <text x="68" y="134" text-anchor="middle" font-weight="600">Visitor</text>
+      <text x="68" y="150" text-anchor="middle" fill="var(--muted-foreground)" font-size="10.5">browser / curl</text>
+
+      <!-- control plane -->
+      <rect
+        x="196"
+        y="40"
+        width="234"
+        height="200"
+        rx="14"
+        fill="none"
+        stroke="var(--primary)"
+        stroke-dasharray="4 4"
+        opacity="0.65"></rect>
+      <text x="313" y="62" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--primary)">
+        OCTOPORT SERVICE (we run this)
+      </text>
+
+      <rect x="214" y="78" width="198" height="46" rx="9" fill="var(--muted)" stroke="var(--border)"></rect>
+      <text x="313" y="97" text-anchor="middle" font-weight="600">Receives the request</text>
+      <text x="313" y="112" text-anchor="middle" fill="var(--muted-foreground)" font-size="10.5">
+        https://k7xq2p9m.itanishq.space
+      </text>
+
+      <rect x="214" y="136" width="198" height="42" rx="9" fill="var(--muted)" stroke="var(--border)"></rect>
+      <text x="313" y="153" text-anchor="middle" font-weight="600">Finds your tunnel</text>
+      <text x="313" y="168" text-anchor="middle" fill="var(--muted-foreground)" font-size="10.5">
+        address → your client
+      </text>
+
+      <rect x="214" y="190" width="198" height="36" rx="9" fill="var(--muted)" stroke="var(--border)"></rect>
+      <text x="313" y="212" text-anchor="middle" font-weight="600">Sends it down your connection</text>
+
+      <!-- agent -->
+      <rect x="502" y="88" width="120" height="52" rx="10" fill="var(--muted)" stroke="var(--border)"></rect>
+      <text x="562" y="110" text-anchor="middle" font-weight="600">OctoPort client</text>
+      <text x="562" y="126" text-anchor="middle" fill="var(--muted-foreground)" font-size="10.5">CLI or desktop app</text>
+
+      <!-- local app -->
+      <rect x="502" y="186" width="120" height="52" rx="10" fill="var(--muted)" stroke="var(--border)"></rect>
+      <text x="562" y="208" text-anchor="middle" font-weight="600">Your app</text>
+      <text x="562" y="224" text-anchor="middle" fill="var(--muted-foreground)" font-size="10.5">localhost:3000</text>
+
+      <!-- your machine boundary -->
+      <rect
+        x="486"
+        y="66"
+        width="152"
+        height="188"
+        rx="14"
+        fill="none"
+        stroke="var(--border)"
+        stroke-dasharray="4 4"></rect>
+      <text x="562" y="270" text-anchor="middle" font-size="10.5" fill="var(--muted-foreground)">
+        your machine · no inbound ports
+      </text>
+
+      <!-- arrows -->
+      <g stroke="var(--muted-foreground)" stroke-width="1.4" fill="none" marker-end="url(#arch-arrow)">
+        <path d="M126 132 H208"></path>
+        <path d="M414 106 H496"></path>
+        <path d="M562 142 V182"></path>
+      </g>
+
+      <g font-size="10" fill="var(--muted-foreground)" text-anchor="middle">
+        <text x="167" y="124">HTTPS</text>
+        <text x="455" y="98">one connection</text>
+        <text x="455" y="112" font-size="9">(opened by your client)</text>
+        <text x="588" y="166" text-anchor="start">TCP</text>
+      </g>
+    </g>
+  </svg>
+  <figcaption class="mt-2 text-sm text-muted-foreground">
+    Your client opens the only connection that crosses your network boundary, and it opens it
+    outward — so there is nothing to configure and nothing on your machine listening for
+    strangers.
+  </figcaption>
+</figure>
