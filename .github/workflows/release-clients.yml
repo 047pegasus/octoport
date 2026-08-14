@@ -42,6 +42,7 @@ env:
   RUSTFLAGS: ""
   RELEASE_FLAGS: --release
   WORKSPACE: agent
+  GUI_PKG: agent/crates/octoport-gui
 
 jobs:
   # ------------------------------------------------------------------ CLI --
@@ -316,27 +317,27 @@ jobs:
       # Package macOS GUI: .dmg, .pkg
       - name: Package macOS GUI (.dmg, .pkg)
         if: matrix.os == 'macos'
-        working-directory: ${{ env.WORKSPACE }}
+        working-directory: ${{ env.GUI_PKG }}
         shell: bash
         run: |
           cargo install cargo-bundle --locked
           cargo bundle --release --target ${{ matrix.target }} --bin octoport-app
-          mkdir -p dist
-          find ../../target/${{ matrix.target }}/release/bundle -name "octoport-app*.dmg" -exec cp {} dist/ \;
-          find ../../target/${{ matrix.target }}/release/bundle -name "octoport-app*.pkg" -exec cp {} dist/ \;
-          cp "../../target/${{ matrix.target }}/release/octoport-app" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}"
+          mkdir -p ../../../dist
+          find ../../../target/${{ matrix.target }}/release/bundle -name "octoport-app*.dmg" -exec cp {} ../../../dist/ \;
+          find ../../../target/${{ matrix.target }}/release/bundle -name "octoport-app*.pkg" -exec cp {} ../../../dist/ \;
+          cp "../../../target/${{ matrix.target }}/release/octoport-app" "../../../dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}"
 
       # Package Windows GUI: .msi
       - name: Package Windows GUI (.msi)
         if: matrix.os == 'windows'
-        working-directory: ${{ env.WORKSPACE }}
+        working-directory: ${{ env.GUI_PKG }}
         shell: pwsh
         run: |
           cargo install cargo-bundle --locked
           cargo bundle --release --target ${{ matrix.target }} --bin octoport-app
-          mkdir -p dist
-          Copy-Item ../../target/${{ matrix.target }}/release/bundle/msi/octoport-app*.msi dist/ 2>$null
-          Copy-Item "../../target/${{ matrix.target }}/release/octoport-app.exe" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}.exe"
+          mkdir -p ../../../dist
+          Copy-Item ../../../target/${{ matrix.target }}/release/bundle/msi/octoport-app*.msi ../../../dist/ 2>$null
+          Copy-Item "../../../target/${{ matrix.target }}/release/octoport-app.exe" "../../../dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}.exe"
 
       # Sign macOS app (optional)
       - name: Sign macOS app (optional)
