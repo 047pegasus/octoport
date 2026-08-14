@@ -24,7 +24,8 @@ services:
       # never swallowed by it.
       - "traefik.http.routers.octoport-site.priority=100"
       - "traefik.http.services.octoport-site.loadbalancer.server.port=80"
-      - "com.centurylinklabs.watchtower.enable=true"
+      # Use global watchtower instead of local
+      # - "com.centurylinklabs.watchtower.enable=true"
 
     logging:
       driver: json-file
