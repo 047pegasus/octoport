@@ -7,8 +7,10 @@ interface Props {
   title: string;
   description: string;
   current?: string;
+  /** Let the page's own background run underneath a transparent nav bar. */
+  overlayNav?: boolean;
 }
-const { title, description, current } = Astro.props;
+const { title, description, current, overlayNav = false } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
@@ -64,7 +66,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       Skip to content
     </a>
 
-    <Nav current={current} />
+    <Nav current={current} overlay={overlayNav} />
     <main id="main" class="flex-1"><slot /></main>
     <Footer />
 

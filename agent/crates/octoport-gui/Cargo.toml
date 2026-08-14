@@ -46,24 +46,25 @@ from public URLs to your local development servers. Features system tray integra
 real-time traffic charts, and automatic tunnel management.
 """
 
-[package.metadata.rpm]
-summary = "OctoPort Desktop — native GUI for exposing local ports"
+# Asset sources are resolved from the directory cargo-generate-rpm runs
+# in (the workspace root, `agent/`), and `target/release/` is rewritten
+# to `target/<triple>/release/` when --target is passed.
+[package.metadata.generate-rpm]
+summary = "OctoPort Desktop - native GUI for exposing local ports"
 license = "MIT OR Apache-2.0"
 group = "Applications/Internet"
-requires = "webkit2gtk4.1, openssl-libs, glibc, gtk3, libappindicator-gtk3"
-description = "OctoPort Desktop — native GUI for exposing local ports to the internet."
-long_description = """
-OctoPort Desktop provides a native cross-platform GUI for managing secure tunnels
-from public URLs to your local development servers. Features system tray integration,
-real-time traffic charts, and automatic tunnel management.
-"""
+assets = [
+  { source = "target/release/octoport-app", dest = "/usr/bin/octoport-app", mode = "755" },
+  { source = "assets/octoport-app-icon-256.png", dest = "/usr/share/icons/hicolor/256x256/apps/octoport-app.png", mode = "644" },
+]
+
 
 [package.metadata.bundle]
 identifier = "io.octoport.gui"
 name = "OctoPort"
 short-description = "OctoPort Desktop"
 long-description = "Native GUI for exposing local ports to the public internet."
-icon = ["../../assets/octoport-app-icon.png"]
+icon = ["../../assets/octoport-app-icon.png", "../../assets/octoport-app-icon-256.png", "../../assets/octoport-app-icon-128.png"]
 category = "public.app-category.utilities"
 copyright = "Copyright (c) 2024 OctoPort Team"
 short-version = { include = "Cargo.toml", key = "package.version" }

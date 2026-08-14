@@ -57,9 +57,11 @@
           })
         : mountGradientWaves(host, {
             // Same three brand colours, mapped horizon -> wave -> crest.
-            horizonColor: '#5227FF',
-            waveColor: '#CCCCFF',
-            crestColor: '#FFFFFF',
+            // Deep violet fading to periwinkle crests. Pure-white crests
+            // blew out along the near edge and washed the whole band out.
+            horizonColor: '#3B1FA8',
+            waveColor: '#5227FF',
+            crestColor: '#CCCCFF',
             speed: 0.4,
             amplitude: 2.5,
             waveScale: 0.6,
@@ -71,7 +73,7 @@
             height: 5.5,
             fogDepth: 15,
             detail: 'medium',
-            brightness: 1,
+            brightness: 0.95,
             opacity: 1,
             mouseInteraction: true,
             parallaxStrength: 0.5,
@@ -102,6 +104,11 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(115% 80% at 50% 42%, rgba(6, 6, 12, 0.72) 0%, rgba(6, 6, 12, 0.28) 45%, transparent 75%);
+    background: radial-gradient(
+      115% 80% at 50% 42%,
+      var(--hero-scrim) 0%,
+      color-mix(in oklab, var(--hero-scrim) 45%, transparent) 48%,
+      transparent 78%
+    );
   }
 </style>

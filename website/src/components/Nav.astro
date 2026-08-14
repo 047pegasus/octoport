@@ -3,17 +3,23 @@ import { NAV } from '../lib/site';
 
 interface Props {
   current?: string;
+  /**
+   * Overlay the bar on top of the page rather than sitting above it. Used on
+   * the landing page so the hero background runs the full viewport height,
+   * behind the nav. While overlaid and un-scrolled the bar is a transparent
+   * glass panel over the hero; once scrolled past it, it picks up the normal
+   * page surface.
+   */
+  overlay?: boolean;
 }
-const { current = '' } = Astro.props;
+const { current = '', overlay = false } = Astro.props;
 ---
 
-<header
-  class="sticky top-0 z-50 border-b border-border/70 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/65"
->
+<header id="site-nav" class="site-nav" data-overlay={overlay ? 'true' : 'false'}>
   <div class="wrap flex h-16 items-center justify-between gap-4">
     <a
       href="/"
-      class="rounded-md font-semibold tracking-tight text-[1.0625rem]"
+      class="nav-brand rounded-md font-semibold tracking-tight text-[1.0625rem]"
       aria-label="OctoPort — home"
     >
       OctoPort
@@ -28,10 +34,8 @@ const { current = '' } = Astro.props;
             rel={l.external ? 'noreferrer noopener' : undefined}
             aria-current={current === l.href ? 'page' : undefined}
             class:list={[
-              'rounded-lg px-3.5 py-2 text-sm font-medium transition-colors',
-              current === l.href
-                ? 'text-primary'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+              'nav-link rounded-lg px-3.5 py-2 text-sm font-medium transition-colors',
+              current === l.href ? 'is-current' : '',
             ]}
             style={current === l.href ? 'background: var(--primary-soft)' : undefined}
           >
@@ -45,7 +49,7 @@ const { current = '' } = Astro.props;
       <button
         id="theme-toggle"
         type="button"
-        class="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        class="nav-link grid h-9 w-9 place-items-center rounded-lg transition-colors"
         aria-label="Toggle colour theme"
       >
         <svg
@@ -78,7 +82,7 @@ const { current = '' } = Astro.props;
       <button
         id="menu-toggle"
         type="button"
-        class="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+        class="nav-link grid h-9 w-9 place-items-center rounded-lg transition-colors md:hidden"
         aria-label="Toggle navigation menu"
         aria-expanded="false"
         aria-controls="mobile-nav"
@@ -93,7 +97,7 @@ const { current = '' } = Astro.props;
   <nav
     id="mobile-nav"
     hidden
-    class="border-t border-border/70 bg-background/95 px-5 py-3 backdrop-blur-xl md:hidden"
+    class="mobile-nav border-t border-border/70 px-5 py-3 backdrop-blur-xl md:hidden"
     aria-label="Mobile"
   >
     {
@@ -102,7 +106,7 @@ const { current = '' } = Astro.props;
           href={l.href}
           target={l.external ? '_blank' : undefined}
           rel={l.external ? 'noreferrer noopener' : undefined}
-          class="block rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          class="nav-link block rounded-lg px-3 py-2.5 text-sm font-medium"
         >
           {l.label}
         </a>
@@ -124,6 +128,15 @@ const { current = '' } = Astro.props;
       /* storage blocked — the toggle still works for this page view */
     }
   });
+
+  // Overlay bar: transparent while it sits over the hero, glass once the
+  // page has scrolled past it.
+  const nav = document.getElementById('site-nav');
+  if (nav?.dataset.overlay === 'true') {
+    const sync = () => nav.classList.toggle('is-scrolled', window.scrollY > 24);
+    sync();
+    window.addEventListener('scroll', sync, { passive: true });
+  }
 
   // Mobile menu
   const menuBtn = document.getElementById('menu-toggle');

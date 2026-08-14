@@ -40,23 +40,26 @@ OctoPort creates secure tunnels from a public URL to your local development serv
 Perfect for testing webhooks, sharing local sites, or accessing services behind NAT.
 """
 
-[package.metadata.rpm]
-summary = "OctoPort CLI — open local ports to the public internet"
+# RPM packaging uses cargo-generate-rpm, which packages an ALREADY-BUILT
+# binary. (The older cargo-rpm is unmaintained and understands neither
+# --no-build nor --target, which is why it used to fail in CI.)
+# Asset sources are resolved from the directory cargo-generate-rpm runs
+# in (the workspace root, `agent/`), and `target/release/` is rewritten
+# to `target/<triple>/release/` when --target is passed.
+[package.metadata.generate-rpm]
+summary = "OctoPort CLI - open local ports to the public internet"
 license = "MIT OR Apache-2.0"
 group = "Applications/Internet"
-requires = "openssl-libs, glibc"
-description = "OctoPort CLI — open local ports to the public internet on random subdomains."
-long_description = """
-OctoPort creates secure tunnels from a public URL to your local development server.
-Perfect for testing webhooks, sharing local sites, or accessing services behind NAT.
-"""
+assets = [
+  { source = "target/release/octoport", dest = "/usr/bin/octoport", mode = "755" },
+]
 
 [package.metadata.bundle]
 identifier = "io.octoport.cli"
 name = "octoport"
 short-description = "OctoPort CLI"
 long-description = "Open local ports to the public internet on random subdomains."
-icon = ["../../assets/octoport-app-icon.png"]
+icon = ["../../assets/octoport-app-icon.png", "../../assets/octoport-app-icon-256.png", "../../assets/octoport-app-icon-128.png"]
 category = "public.app-category.utilities"
 copyright = "Copyright (c) 2024 OctoPort Team"
 short-version = { include = "Cargo.toml", key = "package.version" }

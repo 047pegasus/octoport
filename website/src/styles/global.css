@@ -21,7 +21,8 @@
 
   /* Base colour behind the hero shader. The headline is white in BOTH
      themes, so the hero keeps a deep surface even on the light page. */
-  --hero-base: #241263;
+  --hero-base: #2A1370;
+  --hero-scrim: rgba(26, 12, 74, 0.55);
 }
 
 .dark {
@@ -39,6 +40,7 @@
   --ring: rgba(167, 139, 250, 0.5);
 
   --hero-base: #08080c;
+  --hero-scrim: rgba(6, 6, 12, 0.72);
 }
 
 @theme inline {
@@ -124,10 +126,76 @@ body {
   }
 }
 
-/* Landing hero. The shader sits on this base colour, and the headline sits
-   on both — white type on a deep surface in either theme. */
+/* ------------------------------------------------------------------- nav */
+
+.site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 80%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition:
+    background-color 0.35s ease,
+    border-color 0.35s ease;
+}
+
+.site-nav .nav-brand,
+.site-nav .nav-link {
+  color: var(--muted-foreground);
+}
+.site-nav .nav-brand,
+.site-nav .nav-link.is-current {
+  color: var(--foreground);
+}
+.site-nav .nav-link.is-current {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.site-nav .nav-link:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.site-nav .mobile-nav {
+  background: color-mix(in oklab, var(--background) 95%, transparent);
+}
+
+/* Overlaid on the hero: a transparent glass panel, light type. The hero is a
+   deep surface in BOTH themes, so these colours are theme-independent. */
+.site-nav[data-overlay='true']:not(.is-scrolled) {
+  background: rgba(255, 255, 255, 0.06);
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+.site-nav[data-overlay='true']:not(.is-scrolled) .nav-brand {
+  color: #fff;
+}
+.site-nav[data-overlay='true']:not(.is-scrolled) .nav-link {
+  color: rgba(255, 255, 255, 0.72);
+}
+.site-nav[data-overlay='true']:not(.is-scrolled) .nav-link:hover,
+.site-nav[data-overlay='true']:not(.is-scrolled) .nav-link.is-current {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.site-nav[data-overlay='true']:not(.is-scrolled) .mobile-nav {
+  background: rgba(20, 12, 45, 0.72);
+}
+
+/* ------------------------------------------------------------------ hero */
+
+/* The shader must cover the whole viewport, including the strip behind the
+   overlaid nav — hence the negative top margin that pulls the section up
+   under it, and the matching padding that keeps the content clear.
+   `svh` is used so mobile browser chrome cannot crop the section. */
 .hero {
   background-color: var(--hero-base);
+  margin-top: -4rem;
+  padding-top: 4rem;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
 }
 
 .hero-title {

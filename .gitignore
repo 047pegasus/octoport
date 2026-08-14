@@ -8,7 +8,6 @@
 # ==========================
 agent/target/
 agent/**/target/
-**/Cargo.lock
 **/*.rs.bk
 **/*.orig
 
@@ -64,6 +63,9 @@ deploy/*.yaml
 deploy/docker-compose*.yml
 deploy/*.conf
 deploy/*.toml
+# ...but the website's nginx config is not sensitive and IS required by
+# deploy/Dockerfile.website, so keep it tracked.
+!deploy/nginx-website.conf
 
 # ==========================
 # Sensitive docs / deployment info
@@ -106,6 +108,12 @@ docs/RELEASING.md
 *.der
 secrets/
 *.secret
+
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.pyc
 
 # ==========================
 # Logs
@@ -174,16 +182,12 @@ jacoco.exec
 # ==========================
 # Package managers
 # ==========================
-# Cargo
-Cargo.lock
-
-# npm/yarn/pnpm
-package-lock.json
+# NOTE: lockfiles are deliberately COMMITTED, not ignored.
+#   - website/package-lock.json  -> `npm ci` in CI fails without it
+#   - control-plane/go.sum       -> `go build` fails without it
+#   - agent/Cargo.lock           -> reproducible release builds
 yarn.lock
 pnpm-lock.yaml
-
-# Go
-go.sum
 go.work
 
 # ==========================
