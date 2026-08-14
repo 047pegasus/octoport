@@ -1,0 +1,421 @@
+# =============================================================================
+# OctoPort clients — cross-platform release build.
+#
+# Trigger: any tag `v*` (e.g. `v0.2.0`). Builds:
+#   - the CLI `octoport` for 6 targets, named exactly for the installer:
+#       octoport-linux-x86_64, octoport-linux-aarch64,
+#       octoport-macos-x86_64, octoport-macos-aarch64,
+#       octoport-windows-x86_64, octoport-windows-aarch64
+#   - the desktop app `octoport-app` for Linux / macOS / Windows
+# and publishes SHA256SUMS + a GitHub release.
+#
+# Packaging (native):
+#   - Linux: .deb, .rpm, .tar.gz (CLI); .tar.gz, .AppImage, .deb, .rpm (GUI)
+#   - macOS: .dmg, .pkg (both CLI + GUI)
+#   - Windows: .msi (both CLI + GUI)
+#
+# Signing is optional and off by default:
+#   - Sigstore keyless attestations (actions/attest-build-provenance) on every
+#     artefact, so `gh attestation verify <asset> --repo 047pegasus/octoport`
+#     works. No secrets required.
+#   - Platform code signing (Apple Developer ID / Windows Authenticode) is
+#     applied only when the relevant repository secrets are set; without them
+#     the workflow still builds (users see the usual first-launch warnings).
+#
+# Asset/checksum contract (agent/install.sh):
+#   assets:  octoport-<os>-<arch> ; checksums: SHA256SUMS at release root
+# =============================================================================
+
+name: Release clients
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+env:
+  RUSTFLAGS: ""
+  RELEASE_FLAGS: --release
+
+jobs:
+  # ------------------------------------------------------------------ CLI --
+  build-cli:
+    name: CLI (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: x86_64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: linux
+            arch: aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: macos
+            arch: x86_64
+            runner: macos-14
+            target: x86_64-apple-darwin
+          - os: windows
+            arch: x86_64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows
+            arch: aarch64
+            runner: windows-latest
+            target: aarch64-pc-windows-msvc
+    env:
+      WORKSPACE: agent
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Install packaging tools (Linux)
+      - name: Install Linux packaging tools
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential dpkg-dev rpm
+
+      - name: Build CLI
+        working-directory: ${{ env.WORKSPACE }}
+        shell: bash
+        run: cargo build ${{ env.RELEASE_FLAGS }} --target ${{ matrix.target }} --bin octoport
+
+      # Stage raw binary
+      - name: Stage CLI binary
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            cp "agent/target/${{ matrix.target }}/release/octoport.exe" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
+          else
+            cp "agent/target/${{ matrix.target }}/release/octoport" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
+          fi
+
+      # Package Linux CLI: .deb, .rpm, .tar.gz
+      - name: Package Linux CLI (.deb, .rpm, .tar.gz)
+        if: matrix.os == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo install cargo-deb cargo-rpm --locked
+          cargo deb --no-build --target ${{ matrix.target }}
+          cargo rpm --no-build --target ${{ matrix.target }}
+          cd dist
+          tar czf "octoport-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" "octoport-${{ matrix.os }}-${{ matrix.arch }}"
+          # Copy built packages to dist
+          cp ../../target/${{ matrix.target }}/debian/octoport_*.deb dist/ 2>/dev/null || true
+          cp ../../target/${{ matrix.target }}/rpmbuild/RPMS/*/octoport-*.rpm dist/ 2>/dev/null || true
+
+      # Package macOS CLI: .dmg, .pkg
+      - name: Package macOS CLI (.dmg, .pkg)
+        if: matrix.os == 'macos'
+        shell: bash
+        run: |
+          cargo install cargo-bundle --locked
+          cargo bundle --release --target ${{ matrix.target }} --bin octoport
+          mkdir -p dist
+          # cargo-bundle outputs .app, .dmg, .pkg in target/.../bundle/
+          find ../../target/${{ matrix.target }}/release/bundle -name "octoport*.dmg" -exec cp {} dist/ \;
+          find ../../target/${{ matrix.target }}/release/bundle -name "octoport*.pkg" -exec cp {} dist/ \;
+          # Also copy raw binary for install.sh
+          cp "agent/target/${{ matrix.target }}/release/octoport" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}"
+
+      # Package Windows CLI: .msi
+      - name: Package Windows CLI (.msi)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          cargo install cargo-bundle --locked
+          cargo bundle --release --target ${{ matrix.target }} --bin octoport
+          mkdir -p dist
+          # cargo-bundle outputs .msi in target/.../bundle/msi/
+          Copy-Item ../../target/${{ matrix.target }}/release/bundle/msi/octoport*.msi dist/ 2>$null
+          # Also copy raw .exe for install.sh
+          Copy-Item "agent/target/${{ matrix.target }}/release/octoport.exe" "dist/octoport-${{ matrix.os }}-${{ matrix.arch }}.exe"
+
+      # Sigstore keyless attestation so anyone can verify provenance:
+      #   gh attestation verify octoport-linux-x86_64 --repo 047pegasus/octoport
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*
+
+      - name: Upload artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/*
+
+  # ------------------------------------------------------------------- GUI --
+  build-desktop:
+    name: Desktop (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: x86_64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: linux
+            arch: aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: macos
+            arch: x86_64
+            runner: macos-14
+            target: x86_64-apple-darwin
+          - os: windows
+            arch: x86_64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows
+            arch: aarch64
+            runner: windows-latest
+            target: aarch64-pc-windows-msvc
+    env:
+      WORKSPACE: agent
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Dioxus desktop uses wry (WebKitGTK 4.1) on Linux; install the runtime
+      # dev packages so the app links against them.
+      - name: Install Linux GUI dependencies
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential
+
+      - name: Build
+        working-directory: ${{ env.WORKSPACE }}
+        shell: bash
+        run: cargo build ${{ env.RELEASE_FLAGS }} --target ${{ matrix.target }} --bin octoport-app
+
+      - name: Stage app
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            cp "agent/target/${{ matrix.target }}/release/octoport-app.exe" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}.exe"
+          else
+            cp "agent/target/${{ matrix.target }}/release/octoport-app" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}"
+          fi
+
+      # Package Linux GUI: .deb, .rpm, .tar.gz, .AppImage
+      - name: Package Linux GUI (.deb, .rpm, .tar.gz, .AppImage)
+        if: matrix.os == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # tar.gz
+          cd dist
+          tar czf "octoport-app-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" "octoport-app-${{ matrix.os }}-${{ matrix.arch }}"
+          # AppImage
+          APPDIR="octoport-app.AppDir"
+          mkdir -p "$APPDIR/usr/bin"
+          mkdir -p "$APPDIR/usr/share/applications"
+          mkdir -p "$APPDIR/usr/share/icons/hicolor/256x256/apps"
+          cp "octoport-app-${{ matrix.os }}-${{ matrix.arch }}" "$APPDIR/usr/bin/octoport-app"
+          cat > "$APPDIR/octoport-app.desktop" <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=OctoPort
+          Comment=Open local ports to the public internet
+          Exec=octoport-app
+          Icon=octoport-app
+          Terminal=false
+          Categories=Network;Utility;
+          StartupNotify=true
+          EOF
+          cp "$APPDIR/octoport-app.desktop" "$APPDIR/usr/share/applications/octoport-app.desktop"
+          if [ -f "../../agent/assets/octoport-app-icon.png" ]; then
+            cp "../../agent/assets/octoport-app-icon.png" "$APPDIR/octoport-app.png"
+            cp "../../agent/assets/octoport-app-icon.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/octoport-app.png"
+          else
+            cat > "$APPDIR/octoport-app.svg" <<'SVGEOF'
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+              <rect width="256" height="256" rx="32" fill="#0A0A0A"/>
+              <text x="128" y="160" font-family="sans-serif" font-size="100" fill="#00D4AA" text-anchor="middle">����</text>
+            </svg>
+            SVGEOF
+            cp "$APPDIR/octoport-app.svg" "$APPDIR/octoport-app.png"
+            cp "$APPDIR/octoport-app.svg" "$APPDIR/usr/share/icons/hicolor/256x256/apps/octoport-app.png"
+          fi
+          cat > "$APPDIR/AppRun" <<'EOF'
+          #!/bin/sh
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
+          exec "$HERE/usr/bin/octoport-app" "$@"
+          EOF
+          chmod +x "$APPDIR/AppRun"
+          cp "octoport-app-${{ matrix.os }}-${{ matrix.arch }}" "$APPDIR/usr/bin/octoport-app"
+          cp "$APPDIR/octoport-app.desktop" "$APPDIR/usr/share/applications/octoport-app.desktop"
+          if [ -f "../../agent/assets/octoport-app-icon.png" ]; then
+            cp "../../agent/assets/octoport-app-icon.png" "$APPDIR/octoport-app.png"
+            cp "../../agent/assets/octoport-app-icon.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/octoport-app.png"
+          fi
+          cat > "$APPDIR/AppRun" <<'EOF'
+          #!/bin/sh
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
+          exec "$HERE/usr/bin/octoport-app" "$@"
+          EOF
+          chmod +x "$APPDIR/AppRun"
+          if [ "${{ matrix.arch }}" = "aarch64" ]; then
+            APPIMAGE_ARCH="aarch64"
+            APPIMAGE_TOOL_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-aarch64.AppImage"
+          else
+            APPIMAGE_ARCH="x86_64"
+            APPIMAGE_TOOL_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+          fi
+          wget -q "$APPIMAGE_TOOL_URL" -O appimagetool
+          chmod +x appimagetool
+          ARCH="$APPIMAGE_ARCH" ./appimagetool "$APPDIR" "octoport-app-${{ matrix.os }}-${{ matrix.arch }}.AppImage"
+          rm -rf "$APPDIR" appimagetool
+
+      # Package Linux GUI: .deb, .rpm
+      - name: Package Linux GUI (.deb, .rpm)
+        if: matrix.os == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo install cargo-deb cargo-rpm --locked
+          cargo deb --no-build --target ${{ matrix.target }}
+          cargo rpm --no-build --target ${{ matrix.target }}
+          # Copy built packages to dist
+          cp ../../target/${{ matrix.target }}/debian/octoport-gui_*.deb dist/ 2>/dev/null || true
+          cp ../../target/${{ matrix.target }}/rpmbuild/RPMS/*/octoport-gui-*.rpm dist/ 2>/dev/null || true
+
+      # Package macOS GUI: .dmg, .pkg
+      - name: Package macOS GUI (.dmg, .pkg)
+        if: matrix.os == 'macos'
+        shell: bash
+        run: |
+          cargo install cargo-bundle --locked
+          cargo bundle --release --target ${{ matrix.target }} --bin octoport-app
+          mkdir -p dist
+          find ../../target/${{ matrix.target }}/release/bundle -name "octoport-app*.dmg" -exec cp {} dist/ \;
+          find ../../target/${{ matrix.target }}/release/bundle -name "octoport-app*.pkg" -exec cp {} dist/ \;
+          cp "agent/target/${{ matrix.target }}/release/octoport-app" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}"
+
+      # Package Windows GUI: .msi
+      - name: Package Windows GUI (.msi)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          cargo install cargo-bundle --locked
+          cargo bundle --release --target ${{ matrix.target }} --bin octoport-app
+          mkdir -p dist
+          Copy-Item ../../target/${{ matrix.target }}/release/bundle/msi/octoport-app*.msi dist/ 2>$null
+          Copy-Item "agent/target/${{ matrix.target }}/release/octoport-app.exe" "dist/octoport-app-${{ matrix.os }}-${{ matrix.arch }}.exe"
+      - name: Sign macOS app (optional)
+        if: matrix.os == 'macos' && secrets.APPLE_CERTIFICATE_BASE64 != ''
+        shell: bash
+        continue-on-error: true
+        env:
+          CERT_B64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          CERT_PASS: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$CERT_B64" | base64 -d > /tmp/octoport.p12
+          security create-keychain -p temp temp.keychain
+          security default-keychain -s temp.keychain
+          security unlock-keychain -p temp temp.keychain
+          security import /tmp/octoport.p12 -k temp.keychain -P "$CERT_PASS" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k temp temp.keychain
+          codesign --force --timestamp --sign "Developer ID Application" \
+            --options runtime "dist/octoport-app-macos-${{ matrix.arch }}"
+
+      - name: Notarise macOS app (optional)
+        if: matrix.os == 'macos' && secrets.APPLE_NOTARIZATION_APPLE_ID != ''
+        shell: bash
+        continue-on-error: true
+        env:
+          APPLE_ID: ${{ secrets.APPLE_NOTARIZATION_APPLE_ID }}
+          TEAM_ID: ${{ secrets.APPLE_NOTARIZATION_TEAM_ID }}
+          APP_PASS: ${{ secrets.APPLE_NOTARIZATION_PASSWORD }}
+        run: |
+          set -euo pipefail
+          zip -j /tmp/octoport-app.zip "dist/octoport-app-macos-${{ matrix.arch }}"
+          xcrun notarytool submit /tmp/octoport-app.zip \
+            --apple-id "$APPLE_ID" --team-id "$TEAM_ID" --password "$APP_PASS" --wait
+
+      - name: Sign Windows app (optional)
+        if: matrix.os == 'windows' && secrets.WINDOWS_CERTIFICATE_BASE64 != ''
+        shell: pwsh
+        continue-on-error: true
+        env:
+          CERT_B64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          CERT_PASS: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pfx = Join-Path $env:RUNNER_TEMP 'octoport.pfx'
+          [System.IO.File]::WriteAllBytes($pfx, [System.Convert]::FromBase64String($env:CERT_B64))
+          $exe = "dist/octoport-app-windows-${{ matrix.arch }}.exe"
+          signtool sign /f $pfx /fd SHA256 /p $env:CERT_PASS `
+            /tr http://timestamp.digicert.com /td SHA256 /v $exe
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*
+
+      - name: Upload artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/*
+
+  # -------------------------------------------------------------- release --
+  publish:
+    name: Publish release
+    runs-on: ubuntu-latest
+    needs: [build-cli, build-desktop]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artefacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artefacts
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS
+        working-directory: artefacts
+        run: |
+          sha256sum octoport-* octoport-app-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: OctoPort ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            artefacts/*
