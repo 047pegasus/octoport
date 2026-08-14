@@ -21,6 +21,132 @@ use neofetch::{ASCII_ART, Neofetch};
 use octoport_core::{Client, Settings, client::AuthResponse, store};
 use tracing_subscriber::EnvFilter;
 
+/// Format an error for user-friendly display, providing helpful context
+/// for common failure scenarios.
+fn format_error(err: &anyhow::Error) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    
+    // Check for specific error types and provide helpful messages
+    let err_str = err.to_string();
+    
+    // Check for connection/connection refused errors
+    if err_str.contains("connection refused") 
+        || err_str.contains("connection reset")
+        || err_str.contains("connection timed out")
+        || err_str.contains("connect error")
+        || err_str.contains("tcp connect error") {
+        writeln!(out, "❌ Cannot connect to OctoPort control plane").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "The control plane at https://octoport-control-plane.itanishq.space appears to be unreachable.").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "Possible causes:").ok();
+        writeln!(out, "  • The control plane service is down or starting up").ok();
+        writeln!(out, "  • Network connectivity issues (check your internet connection)").ok();
+        writeln!(out, "  • The service may be temporarily unavailable").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "Try again in a few moments. If the problem persists, check the status at:").ok();
+        writeln!(out, "  https://octoport.itanishq.space/status").ok();
+        return out;
+    }
+    
+    // Check for 502 Bad Gateway (gateway/proxy issues)
+    if err.to_string().contains("502") || err.to_string().contains("Bad Gateway") {
+        writeln!(out, "❌ Control plane returned 502 Bad Gateway").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "The control plane is receiving requests but the upstream service is unavailable.").ok();
+        writeln!(out, "This usually means the backend services (database, cache) are not ready yet.").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "Please wait a few minutes and try again.").ok();
+        return out;
+    }
+    
+    // Check for 503 Service Unavailable
+    if err.to_string().contains("503") || err_str.contains("Service Unavailable") {
+        writeln!(out, "❌ Service temporarily unavailable").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "The control plane is temporarily unavailable, likely due to maintenance or high load.").ok();
+        writeln!(out, "Please try again in a few minutes.").ok();
+        return out;
+    }
+    
+    // Check for 504 Gateway Timeout
+    if err.to_string().contains("504") || err_str.contains("Gateway Timeout") {
+        writeln!(out, "❌ Request timed out").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "The control plane took too long to respond. This may indicate high load or a slow database.").ok();
+        writeln!(out, "Please try again in a moment.").ok();
+        return out;
+    }
+    
+    // Check for DNS resolution errors
+    if err_str.contains("dns") || err_str.contains("Name or service not known") {
+        writeln!(out, "❌ Cannot resolve control plane hostname").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "Cannot resolve octoport-control-plane.itanishq.space").ok();
+        writeln!(out, "Check your DNS settings or try using a different DNS server (e.g., 1.1.1.1 or 8.8.8.8).").ok();
+        return out;
+    }
+    
+    // Check for TLS/SSL errors
+    if err_str.contains("tls") || err_str.contains("ssl") || err_str.contains("certificate") {
+        writeln!(out, "❌ TLS/SSL certificate error").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "There was a problem establishing a secure connection to the control plane.").ok();
+        writeln!(out, "This may be due to an expired certificate or a man-in-the-middle attack.").ok();
+        writeln!(out, "Try again later or contact support if this persists.").ok();
+        return out;
+    }
+    
+    // Check for authentication errors
+    if err_str.contains("401") || err_str.contains("Unauthorized") || err_str.contains("unauthorized") {
+        writeln!(out, "❌ Authentication failed").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "Your session has expired or is invalid. Please run `octoport login` to sign in again.").ok();
+        return out;
+    }
+    
+    // Check for 403 Forbidden
+    if err_str.contains("403") || err_str.contains("Forbidden") {
+        writeln!(out, "❌ Access forbidden").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "You don't have permission to perform this action.").ok();
+        writeln!(out, "Make sure you're signed in with the correct account.").ok();
+        return out;
+    }
+    
+    // Check for 404 Not Found
+    if err_str.contains("404") || err_str.contains("Not Found") {
+        writeln!(out, "❌ Resource not found").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "The requested resource doesn't exist. It may have been deleted or the URL is incorrect.").ok();
+        return out;
+    }
+    
+    // Check for JSON decoding errors
+    if err_str.contains("error decoding response body") || err_str.contains("expected value at line 1 column 1") {
+        writeln!(out, "❌ Received unexpected response from control plane").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "The control plane returned an unexpected response (likely an HTML error page instead of JSON).").ok();
+        writeln!(out, "This usually means the service is down or returning an error page instead of JSON.").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "Try again in a few moments. If the problem persists, the control plane may be down.").ok();
+        return out;
+    }
+    
+    // Check for timeout errors
+    if err_str.contains("timed out") || err_str.contains("timeout") {
+        writeln!(out, "❌ Request timed out").ok();
+        writeln!(out, "").ok();
+        writeln!(out, "The request took too long to complete. The control plane may be overloaded.").ok();
+        writeln!(out, "Try again in a few moments.").ok();
+        return out;
+    }
+    
+    // Generic fallback - show the original error
+    format!("❌ {err:#}")
+}
+
 #[derive(Parser)]
 #[command(name = "octoport", version, about = "Open local ports to the public internet on random subdomains")]
 struct Cli {
@@ -70,7 +196,7 @@ async fn main() -> ExitCode {
     match run(cli).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("error: {e:#}");
+            eprintln!("{}", format_error(&e));
             ExitCode::FAILURE
         }
     }
