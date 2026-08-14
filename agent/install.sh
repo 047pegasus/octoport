@@ -13,16 +13,16 @@ REPO="${OCTOPORT_REPO:-https://github.com/047pegasus/octoport}"
 VERSION="${OCTOPORT_VERSION:-latest}"
 DEST_DIR="${OCTOPORT_INSTALL_DIR:-/usr/local/bin}"
 INSTALL_CLI="${OCTOPORT_INSTALL_CLI:-true}"
-INSTALL_GUI="${OCTOPORT_INSTALL_GUI:-false}"
+INSTALL_GUI="${OCTOPORT_INSTALL_GUI:-true}"
 
 usage() {
   cat <<'EOF'
 Usage: ./install.sh [OPTIONS]
 
 Options:
-  --cli-only       Install only the CLI (default)
+  --cli-only       Install only the CLI
   --gui-only       Install only the GUI
-  --both           Install both CLI and GUI
+  --both           Install both CLI and GUI (default)
   --version VER    Version to install (default: latest)
   --repo URL       GitHub repo URL (default: https://github.com/047pegasus/octoport)
   --dest DIR       Install directory for CLI binary (default: /usr/local/bin)
@@ -33,7 +33,7 @@ Environment variables:
   OCTOPORT_REPO          GitHub repository URL
   OCTOPORT_INSTALL_DIR   CLI install directory
   OCTOPORT_INSTALL_CLI   "true"/"false" (default: true)
-  OCTOPORT_INSTALL_GUI   "true"/"false" (default: false)
+  OCTOPORT_INSTALL_GUI   "true"/"false" (default: true)
 EOF
   exit 0
 }
