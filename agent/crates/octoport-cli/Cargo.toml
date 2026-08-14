@@ -7,9 +7,10 @@ description = "OctoPort CLI: open local ports to the public internet with random
 authors = ["OctoPort Team <hello@octoport.io>"]
 homepage = "https://octoport.io"
 repository = "https://github.com/047pegasus/octoport"
-readme = "README.md"
+readme = "../../../README.md"
 categories = ["command-line-utilities", "network-programming"]
 keywords = ["tunnel", "proxy", "reverse-proxy", "expose", "localhost"]
+default-run = "octoport"
 
 [[bin]]
 name = "octoport"
@@ -32,8 +33,9 @@ maintainer = "OctoPort Team <hello@octoport.io>"
 section = "net"
 priority = "optional"
 depends = "libssl3, libc6"
-description = "OctoPort CLI — open local ports to the public internet on random subdomains."
 extended-description = """
+OctoPort CLI — open local ports to the public internet on random subdomains.
+
 OctoPort creates secure tunnels from a public URL to your local development server.
 Perfect for testing webhooks, sharing local sites, or accessing services behind NAT.
 """
@@ -55,7 +57,7 @@ name = "octoport"
 short-description = "OctoPort CLI"
 long-description = "Open local ports to the public internet on random subdomains."
 icon = ["../../assets/octoport-app-icon.png"]
-category = "public.network"
+category = "public.app-category.utilities"
 copyright = "Copyright (c) 2024 OctoPort Team"
 short-version = { include = "Cargo.toml", key = "package.version" }
 long-version = { include = "Cargo.toml", key = "package.version" }
