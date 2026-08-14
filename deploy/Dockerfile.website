@@ -1,8 +1,9 @@
 # =============================================================================
 # OctoPort website — static Astro build served by nginx.
 #
-# Build context is the repo root:
-#     docker build -f deploy/Dockerfile.website -t octoport-website .
+# Built by .github/workflows/build-push.yml and published to GHCR.
+# Build context is website/ directory:
+#     docker build -f deploy/Dockerfile.website -t octoport-website website/
 # =============================================================================
 
 FROM node:22-alpine AS builder
@@ -10,10 +11,10 @@ FROM node:22-alpine AS builder
 WORKDIR /src
 
 # Install from the lockfile first so this layer caches across content changes.
-COPY website/package.json website/package-lock.json ./
+COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY website/ ./
+COPY . .
 RUN npm run build
 
 # ------------------------------------------------------------------ runtime --

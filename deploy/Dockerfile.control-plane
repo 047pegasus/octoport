@@ -1,10 +1,9 @@
 # =============================================================================
 # OctoPort control plane — production image.
 #
-# Built by .github/workflows/build-push-control-plane.yml and published to
-# GHCR; Watchtower on the home server deploys it. Build context is the repo
-# root:
-#     docker build -f deploy/Dockerfile.control-plane -t octoport-control-plane .
+# Built by .github/workflows/build-push.yml and published to GHCR.
+# Build context is control-plane/ directory:
+#     docker build -f deploy/Dockerfile.control-plane -t octoport-control-plane control-plane/
 # =============================================================================
 
 FROM golang:1.26-alpine AS builder
@@ -12,10 +11,10 @@ FROM golang:1.26-alpine AS builder
 WORKDIR /src
 
 # Dependencies first so the layer caches while only source changes.
-COPY control-plane/go.mod control-plane/go.sum ./
+COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
-COPY control-plane/ ./
+COPY . .
 
 # Production build flags:
 #   CGO_ENABLED=0  fully static, so it runs on a distroless base
