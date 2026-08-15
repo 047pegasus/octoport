@@ -45,24 +45,24 @@ func (p *Proxy) Handler() http.Handler {
 func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	subdomain, ok := p.extractSubdomain(r.Host)
 	if !ok {
-		http.Error(w, "unknown host", http.StatusNotFound)
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 
 	entry, err := p.Cache.GetTunnel(r.Context(), subdomain)
 	if errors.Is(err, cache.ErrMiss) {
-		http.Error(w, "unknown host", http.StatusNotFound)
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 	if err != nil {
 		p.Log.Error("proxy: cache lookup failed", "subdomain", subdomain, "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 	if !entry.Enabled {
 		// Paused tunnels keep their subdomain reserved but stop serving.
 		// Return 404 to avoid leaking tunnel existence.
-		http.Error(w, "unknown host", http.StatusNotFound)
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 
@@ -70,17 +70,17 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		// Tunnel exists but no live agent is connected.
 		// Return 404 to avoid leaking tunnel existence.
-		http.Error(w, "unknown host", http.StatusNotFound)
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 	agent, ok := p.Hub.AgentByID(entry.AgentID)
 	if !ok || agent == nil {
 		// Agent offline.
-		http.Error(w, "unknown host", http.StatusNotFound)
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 	if t.Protocol != "http" {
-		http.Error(w, "tunnel is not an http tunnel", http.StatusBadRequest)
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 	t.BumpActivity()

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=OctoPort
+GenericName=Port Tunneling
+Comment=Open local ports to the public internet
+Exec=octoport-app
+Icon=octoport-app
+Terminal=false
+Categories=Network;Utility;
+Keywords=tunnel;proxy;expose;localhost;
+StartupNotify=true
+StartupWMClass=octoport-app

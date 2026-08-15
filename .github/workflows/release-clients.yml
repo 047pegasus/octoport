@@ -292,17 +292,10 @@ jobs:
           cp agent/assets/octoport-app-icon-256.png \
              "$APPDIR/usr/share/icons/hicolor/256x256/apps/octoport-app.png"
 
-          cat > "$APPDIR/octoport-app.desktop" <<'DESKTOP'
-          [Desktop Entry]
-          Type=Application
-          Name=OctoPort
-          Comment=Open local ports to the public internet
-          Exec=octoport-app
-          Icon=octoport-app
-          Terminal=false
-          Categories=Network;Utility;
-          StartupNotify=true
-          DESKTOP
+          # Shared desktop entry from agent/assets; StartupWMClass makes the
+          # taskbar/launcher match the running window to this entry, so the
+          # app icon shows there instead of a generic one.
+          cp agent/assets/octoport-app.desktop "$APPDIR/octoport-app.desktop"
           cp "$APPDIR/octoport-app.desktop" "$APPDIR/usr/share/applications/octoport-app.desktop"
 
           cat > "$APPDIR/AppRun" <<'APPRUN'

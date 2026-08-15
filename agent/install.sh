@@ -387,6 +387,24 @@ install_appimage() {
     run_with_spinner "installing AppImage" install -m 755 "$TMP/$asset" "$dest"
     run_with_spinner "linking octoport-app" ln -sf "$dest" /usr/local/bin/octoport-app
   fi
+
+  # Register the app with the desktop environment: extract the desktop entry
+  # and icon from the AppImage so it appears in the application menu and shows
+  # the app icon in the taskbar (StartupWMClass matches octoport-app).
+  (cd "$TMP" && "$TMP/$asset" --appimage-extract >/dev/null 2>&1)
+  if [ ! -f "$TMP/squashfs-root/usr/share/applications/octoport-app.desktop" ]; then
+    warn "! could not extract app menu entry from AppImage; app will not be registered"
+    return
+  fi
+  if [ ! -w "/usr/share" ]; then
+    run_with_spinner "registering app menu entry" sudo install -m 644 "$TMP/squashfs-root/usr/share/applications/octoport-app.desktop" /usr/share/applications/octoport-app.desktop
+    sudo install -m 644 "$TMP/squashfs-root/usr/share/icons/hicolor/256x256/apps/octoport-app.png" /usr/share/icons/hicolor/256x256/apps/octoport-app.png
+    sudo update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+  else
+    run_with_spinner "registering app menu entry" install -m 644 "$TMP/squashfs-root/usr/share/applications/octoport-app.desktop" /usr/share/applications/octoport-app.desktop
+    install -m 644 "$TMP/squashfs-root/usr/share/icons/hicolor/256x256/apps/octoport-app.png" /usr/share/icons/hicolor/256x256/apps/octoport-app.png
+    update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+  fi
 }
 
 # Main install logic

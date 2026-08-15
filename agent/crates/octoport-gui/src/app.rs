@@ -1995,7 +1995,7 @@ fn TunnelCard(state: AppState, tunnel: TunnelListItem) -> Element {
                     Detail { label: "Ends in", value: remaining.clone(), mono: false }
                 }
                 div { class: "card-open-url",
-                    a { href: url_href.clone(), onclick: |e| e.prevent_default(), "Open in browser" }
+                    button { class: "btn btn-primary btn-sm", onclick: move |_| open_browser(&url_href), "Open in browser" }
                     button { class: "btn btn-ghost btn-sm", onclick: move |e| { e.stop_propagation(); copy_text(&url_copy); }, "Copy URL" }
                 }
             }

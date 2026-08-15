@@ -45,6 +45,18 @@ OctoPort Desktop provides a native cross-platform GUI for managing secure tunnel
 from public URLs to your local development servers. Features system tray integration,
 real-time traffic charts, and automatic tunnel management.
 """
+# "$auto" keeps the default binary + README installs; the extra assets add the
+# .desktop entry and hicolor icon so the app shows up in the application menu
+# and gets its icon in the taskbar (GNOME matches the window's WM_CLASS
+# octoport-app against StartupWMClass in this file).
+assets = [
+  "$auto",
+  { source = "../../assets/octoport-app.desktop", dest = "usr/share/applications/octoport-app.desktop", mode = "644" },
+  { source = "../../assets/octoport-app-icon-32.png", dest = "usr/share/icons/hicolor/32x32/apps/octoport-app.png", mode = "644" },
+  { source = "../../assets/octoport-app-icon-64.png", dest = "usr/share/icons/hicolor/64x64/apps/octoport-app.png", mode = "644" },
+  { source = "../../assets/octoport-app-icon-128.png", dest = "usr/share/icons/hicolor/128x128/apps/octoport-app.png", mode = "644" },
+  { source = "../../assets/octoport-app-icon-256.png", dest = "usr/share/icons/hicolor/256x256/apps/octoport-app.png", mode = "644" },
+]
 
 # Asset sources are resolved from the directory cargo-generate-rpm runs
 # in (the workspace root, `agent/`), and `target/release/` is rewritten
@@ -55,6 +67,10 @@ license = "MIT OR Apache-2.0"
 group = "Applications/Internet"
 assets = [
   { source = "target/release/octoport-app", dest = "/usr/bin/octoport-app", mode = "755" },
+  { source = "assets/octoport-app.desktop", dest = "/usr/share/applications/octoport-app.desktop", mode = "644" },
+  { source = "assets/octoport-app-icon-32.png", dest = "/usr/share/icons/hicolor/32x32/apps/octoport-app.png", mode = "644" },
+  { source = "assets/octoport-app-icon-64.png", dest = "/usr/share/icons/hicolor/64x64/apps/octoport-app.png", mode = "644" },
+  { source = "assets/octoport-app-icon-128.png", dest = "/usr/share/icons/hicolor/128x128/apps/octoport-app.png", mode = "644" },
   { source = "assets/octoport-app-icon-256.png", dest = "/usr/share/icons/hicolor/256x256/apps/octoport-app.png", mode = "644" },
 ]
 

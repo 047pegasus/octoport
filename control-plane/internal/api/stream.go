@@ -148,7 +148,7 @@ func (s *Server) tunnelStats(userID string) []map[string]any {
 // SSE subscriber. Wired as the Hub's OnTunnelChange hook and called directly
 // from create/delete handlers.
 func (s *Server) publishUserList(userID string) {
-	if userID == "" || s.Events.SubscriberCount(userID) == 0 {
+	if userID == "" {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
