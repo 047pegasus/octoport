@@ -202,9 +202,26 @@ body {
     align-items: center;
     justify-content: center;
     padding: 24px;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+}
+
+/* SlicedWaves WebGL background (React Bits "SlicedWaves" port) fills the whole
+   auth screen behind the card. The canvas is click-through; the card sits on
+   top and stays interactive. */
+.auth-waves {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
 }
 
 .auth-card {
+    position: relative;
+    z-index: 1;
     width: 360px;
     background: var(--panel);
     border: 1px solid var(--border);

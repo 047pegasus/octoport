@@ -162,8 +162,17 @@ const { current = '', overlay = false } = Astro.props;
   // Theme toggle — the initial class is set by an inline script in <head>,
   // so this only handles user-driven changes.
   const root = document.documentElement;
+  let fadeTimer: number;
   document.getElementById('theme-toggle')?.addEventListener('click', () => {
     const dark = !root.classList.contains('dark');
+
+    // Cross-fade the colour swap. Custom properties do not interpolate, so a
+    // short transition is enabled on the affected properties for the length
+    // of the change, then removed so ordinary hovers stay snappy.
+    root.classList.add('theme-switching');
+    window.clearTimeout(fadeTimer);
+    fadeTimer = window.setTimeout(() => root.classList.remove('theme-switching'), 480);
+
     root.classList.toggle('dark', dark);
     try {
       localStorage.setItem('octoport-theme', dark ? 'dark' : 'light');

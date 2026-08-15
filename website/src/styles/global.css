@@ -23,7 +23,6 @@
      themes, so the hero keeps a deep surface even on the light page. */
   --hero-base: #2A1370;
   --hero-scrim: rgba(26, 12, 74, 0.55);
-  --scrollbar-thumb: #6d3ff0;
   --page-veil: #140a3c;
 }
 
@@ -43,7 +42,6 @@
 
   --hero-base: #08080c;
   --hero-scrim: rgba(6, 6, 12, 0.72);
-  --scrollbar-thumb: #a78bfa;
   --page-veil: #06060c;
 }
 
@@ -122,40 +120,51 @@ body {
   border-radius: 4px;
 }
 
-/* A hairline scrollbar tinted with the brand colour, invisible until the
-   pointer is near it. Firefox gets the same via scrollbar-* properties.
-   `scrollbar-gutter: stable` keeps the layout from shifting as it appears. */
+/* Scrollbars are hidden entirely. Scrolling itself is untouched — wheel,
+   trackpad, keyboard, touch and programmatic scrolling all behave normally;
+   only the visual track is suppressed. `overflow` is deliberately NOT set to
+   hidden, which would actually disable scrolling. */
 html {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-  scrollbar-gutter: stable;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge/IE */
 }
-html:hover,
-html.is-scrolling {
-  scrollbar-color: color-mix(in oklab, var(--scrollbar-thumb) 85%, transparent) transparent;
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* Chrome, Safari, modern Edge */
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* --------------------------------------------------- theme cross-fade ---
+   CSS custom properties do not interpolate, so flipping the theme swaps
+   every colour instantly. Nav.astro adds `.theme-switching` to <html> for
+   the length of the fade, which puts a short transition on the properties
+   that actually carry the theme. It is removed afterwards so ordinary
+   hovers stay snappy. */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition:
+    background-color 0.42s ease,
+    background-image 0.42s ease,
+    border-color 0.42s ease,
+    color 0.42s ease,
+    fill 0.42s ease,
+    stroke 0.42s ease,
+    box-shadow 0.42s ease !important;
+  transition-delay: 0s !important;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 999px;
-  transition: background-color 0.25s ease;
-}
-:hover::-webkit-scrollbar-thumb,
-.is-scrolling::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--scrollbar-thumb) 85%, transparent);
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb);
-}
-::-webkit-scrollbar-corner {
-  background: transparent;
+
+/* Someone who asked for less motion should not get a cross-fade either. */
+@media (prefers-reduced-motion: reduce) {
+  html.theme-switching,
+  html.theme-switching *,
+  html.theme-switching *::before,
+  html.theme-switching *::after {
+    transition: none !important;
+  }
 }
 
 /* ------------------------------------------------------------- utilities */
@@ -206,33 +215,24 @@ html.is-scrolling {
   z-index: 1;
 }
 
-/* A soft dark veil behind every band of body copy. Without it, text crossing
-   a bright filament in the shader loses contrast as the animation moves. */
-.readable::before {
-  content: '';
-  position: absolute;
-  inset: -2rem -1rem;
-  z-index: 0;
-  border-radius: 2rem;
-  background: radial-gradient(
-    75% 65% at 50% 50%,
-    color-mix(in oklab, var(--page-veil) 72%, transparent) 0%,
-    color-mix(in oklab, var(--page-veil) 46%, transparent) 55%,
-    transparent 82%
-  );
-  pointer-events: none;
-}
+/* NOTE: there used to be a `.readable::before` veil behind each band of prose.
+   It was a bug. Those elements sit in a `z-index: 1` stacking context, and an
+   absolutely-positioned `::before` at `z-index: 0` paints in the positioned-
+   descendant layer — which comes AFTER inline text. So the veil rendered ON
+   TOP of the headings, dimming them and, on the light theme, showing as a
+   dark rectangular patch. All backdrop dimming now lives inside `.site-bg`,
+   below the content layer, where it cannot touch the text. */
 
-/* A tight shadow for edge definition. The earlier wide, dark halo bled into
-   the glyphs and made white type read as grey. */
+/* A tight shadow purely for edge definition against the moving backdrop. */
 .landing main,
 .landing footer {
-  text-shadow: 0 1px 3px rgba(8, 3, 26, 0.55);
+  text-shadow: 0 1px 3px rgba(8, 3, 26, 0.5);
 }
 .landing h1,
 .landing h2,
 .landing h3 {
-  text-shadow: 0 1px 4px rgba(8, 3, 26, 0.5);
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(8, 3, 26, 0.45);
 }
 /* Controls and code keep crisp edges — a shadow on them just looks smudged. */
 .landing a[class*='bg-primary'],

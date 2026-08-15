@@ -75,6 +75,54 @@ detect_os() {
 OS="$(detect_os)"
 ARCH="$(detect_arch)"
 
+# --- progress UI -------------------------------------------------------------
+# A download-with-percentage bar (curl's built-in --progress-bar renders an
+# animated `####   45%` line) plus a small spinner for long-running install
+# steps. Both are disabled when stdout isn't a terminal so piped output stays
+# clean.
+SPINNER_FRAMES=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+
+download_asset() {
+  local url="$1" out="$2"
+  if [ -t 1 ]; then
+    curl -fSL --progress-bar "$url" -o "$out"
+  else
+    curl -fSL "$url" -o "$out"
+  fi
+}
+
+run_with_spinner() {
+  local label="$1"
+  shift
+  if [ ! -t 1 ]; then
+    "$@"
+    return $?
+  fi
+  "$@" &
+  local pid=$!
+  local i=0
+  local frames=0
+  while kill -0 "$pid" 2>/dev/null; do
+    printf "\r\033[2K  %s %s…" "${SPINNER_FRAMES[$i]}" "$label"
+    i=$(( (i + 1) % ${#SPINNER_FRAMES[@]} ))
+    frames=$((frames + 1))
+    sleep 0.1
+  done
+  # Most install steps finish in well under a frame — without this minimum the
+  # spinner would blink and vanish before the eye catches it. Hold it for a
+  # few frames (~0.4s) so the animation is actually seen.
+  while [ "$frames" -lt 4 ]; do
+    printf "\r\033[2K  %s %s…" "${SPINNER_FRAMES[$i]}" "$label"
+    i=$(( (i + 1) % ${#SPINNER_FRAMES[@]} ))
+    frames=$((frames + 1))
+    sleep 0.1
+  done
+  wait "$pid"
+  local rc=$?
+  printf "\r\033[2K"
+  return $rc
+}
+
 # Version path
 if [ "$VERSION" = "latest" ]; then
   BASE_URL="$REPO/releases/latest/download"
@@ -130,7 +178,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 # Fetch SHA256SUMS once
 echo "Fetching checksums..."
-if ! curl -fsSL "$SHA256SUMS_URL" -o "$TMP/SHA256SUMS" 2>/dev/null; then
+if ! download_asset "$SHA256SUMS_URL" "$TMP/SHA256SUMS" 2>/dev/null; then
   echo "! could not fetch SHA256SUMS; aborting" >&2
   exit 1
 fi
@@ -149,7 +197,7 @@ verify_and_install_binary() {
 
   local url="${BASE_URL}/${asset_name}"
   echo "Downloading ${asset_name}..."
-  curl -fsSL "$url" -o "$TMP/${asset_name}"
+  download_asset "$url" "$TMP/${asset_name}"
 
   # Verify checksum
   local actual_checksum
@@ -173,22 +221,22 @@ verify_and_install_binary() {
   # Install binary
   if [ ! -w "$(dirname "$dest_path")" ]; then
     echo "! $dest_path requires elevated privileges; using sudo"
-    sudo install -m 755 "$TMP/${asset_name}" "$dest_path"
+    run_with_spinner "installing ${asset_name}" sudo install -m 755 "$TMP/${asset_name}" "$dest_path"
   else
-    install -m 755 "$TMP/${asset_name}" "$dest_path"
+    run_with_spinner "installing ${asset_name}" install -m 755 "$TMP/${asset_name}" "$dest_path"
   fi
 }
 
 install_deb() {
   local asset="$1"
   echo "Installing .deb package: $asset"
-  sudo apt-get update -qq && sudo apt-get install -y "$TMP/$asset"
+  run_with_spinner "installing $asset" sudo apt-get update -qq && run_with_spinner "installing $asset" sudo apt-get install -y "$TMP/$asset"
 }
 
 install_rpm() {
   local asset="$1"
   echo "Installing .rpm package: $asset"
-  sudo dnf install -y "$TMP/$asset" 2>/dev/null || sudo yum install -y "$TMP/$asset"
+  run_with_spinner "installing $asset" sudo dnf install -y "$TMP/$asset" 2>/dev/null || run_with_spinner "installing $asset" sudo yum install -y "$TMP/$asset"
 }
 
 install_dmg() {
@@ -203,11 +251,11 @@ install_dmg() {
   if find "$mount_point" -name "*.app" -maxdepth 1 | grep -q .; then
     local app_path=$(find "$mount_point" -name "*.app" -maxdepth 1 | head -1)
     echo "Installing .app to /Applications..."
-    sudo cp -R "$app_path" /Applications/
+    run_with_spinner "installing .app" sudo cp -R "$app_path" /Applications/
   elif find "$mount_point" -name "*.pkg" -maxdepth 1 | grep -q .; then
     local pkg_path=$(find "$mount_point" -name "*.pkg" -maxdepth 1 | head -1)
     echo "Installing .pkg..."
-    sudo installer -pkg "$pkg_path" -target /
+    run_with_spinner "installing .pkg" sudo installer -pkg "$pkg_path" -target /
   fi
   hdiutil detach "$mount_point" -quiet
 }
@@ -215,13 +263,13 @@ install_dmg() {
 install_pkg() {
   local asset="$1"
   echo "Installing .pkg: $asset"
-  sudo installer -pkg "$TMP/$asset" -target /
+  run_with_spinner "installing $asset" sudo installer -pkg "$TMP/$asset" -target /
 }
 
 install_msi() {
   local asset="$1"
   echo "Installing .msi: $asset"
-  msiexec /i "$TMP/$asset" /quiet /norestart
+  run_with_spinner "installing $asset" msiexec /i "$TMP/$asset" /quiet /norestart
 }
 
 install_appimage() {
@@ -229,11 +277,11 @@ install_appimage() {
   local dest="/opt/octoport-app.AppImage"
   echo "Installing AppImage to $dest..."
   if [ ! -w "/opt" ]; then
-    sudo install -m 755 "$TMP/$asset" "$dest"
-    sudo ln -sf "$dest" /usr/local/bin/octoport-app
+    run_with_spinner "installing AppImage" sudo install -m 755 "$TMP/$asset" "$dest"
+    run_with_spinner "linking octoport-app" sudo ln -sf "$dest" /usr/local/bin/octoport-app
   else
-    install -m 755 "$TMP/$asset" "$dest"
-    ln -sf "$dest" /usr/local/bin/octoport-app
+    run_with_spinner "installing AppImage" install -m 755 "$TMP/$asset" "$dest"
+    run_with_spinner "linking octoport-app" ln -sf "$dest" /usr/local/bin/octoport-app
   fi
 }
 
@@ -246,36 +294,36 @@ if [ "$INSTALL_CLI" = "true" ]; then
       if command -v dpkg >/dev/null 2>&1; then
         ASSET="octoport-${OS}-${ARCH}.deb"
         if grep -q " ${ASSET}\$" "$TMP/SHA256SUMS"; then
-          curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
+          download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
           install_deb "$ASSET"
         else
           ASSET="octoport-${OS}-${ARCH}.tar.gz"
-          curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
-          tar xzf "$TMP/${ASSET}" -C "$TMP"
+          download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
+          run_with_spinner "extracting ${ASSET}" tar xzf "$TMP/${ASSET}" -C "$TMP"
           verify_and_install_binary "octoport-${OS}-${ARCH}" "/usr/local/bin/octoport"
         fi
       elif command -v rpm >/dev/null 2>&1 || command -v dnf >/dev/null 2>&1; then
         ASSET="octoport-${OS}-${ARCH}.rpm"
         if grep -q " ${ASSET}\$" "$TMP/SHA256SUMS"; then
-          curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
+          download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
           install_rpm "$ASSET"
         else
           ASSET="octoport-${OS}-${ARCH}.tar.gz"
-          curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
-          tar xzf "$TMP/${ASSET}" -C "$TMP"
+          download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
+          run_with_spinner "extracting ${ASSET}" tar xzf "$TMP/${ASSET}" -C "$TMP"
           verify_and_install_binary "octoport-${OS}-${ARCH}" "/usr/local/bin/octoport"
         fi
       else
         ASSET="octoport-${OS}-${ARCH}.tar.gz"
-        curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
-        tar xzf "$TMP/${ASSET}" -C "$TMP"
+        download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
+        run_with_spinner "extracting ${ASSET}" tar xzf "$TMP/${ASSET}" -C "$TMP"
         verify_and_install_binary "octoport-${OS}-${ARCH}" "$DEST_DIR/octoport"
       fi
       ;;
     macos)
       ASSET="octoport-${OS}-${ARCH}.pkg"
       if grep -q " ${ASSET}\$" "$TMP/SHA256SUMS"; then
-        curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
+        download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
         install_pkg "$ASSET"
       else
         ASSET="octoport-${OS}-${ARCH}"
@@ -285,7 +333,7 @@ if [ "$INSTALL_CLI" = "true" ]; then
     windows)
       ASSET="octoport-${OS}-${ARCH}.msi"
       if grep -q " ${ASSET}\$" "$TMP/SHA256SUMS"; then
-        curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
+        download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
         install_msi "$ASSET"
       else
         ASSET="octoport-${OS}-${ARCH}.exe"
@@ -303,36 +351,36 @@ if [ "$INSTALL_GUI" = "true" ]; then
       if command -v dpkg >/dev/null 2>&1; then
         ASSET="octoport-app-${OS}-${ARCH}.deb"
         if grep -q " ${ASSET}\$" "$TMP/SHA256SUMS"; then
-          curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
+          download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
           install_deb "$ASSET"
         else
           ASSET="octoport-app-${OS}-${ARCH}.AppImage"
           if grep -q " ${ASSET}\$" "$TMP/SHA256SUMS"; then
-            curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
+            download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
             install_appimage "$ASSET"
           fi
         fi
       elif command -v rpm >/dev/null 2>&1 || command -v dnf >/dev/null 2>&1; then
         ASSET="octoport-app-${OS}-${ARCH}.rpm"
         if grep -q " ${ASSET}\$" "$TMP/SHA256SUMS"; then
-          curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
+          download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
           install_rpm "$ASSET"
         else
           ASSET="octoport-app-${OS}-${ARCH}.AppImage"
           if grep -q " ${ASSET}\$" "$TMP/SHA256SUMS"; then
-            curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
+            download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
             install_appimage "$ASSET"
           fi
         fi
       else
         ASSET="octoport-app-${OS}-${ARCH}.AppImage"
         if grep -q " ${ASSET}\$" "$TMP/SHA256SUMS"; then
-          curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
+          download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
           install_appimage "$ASSET"
         else
           ASSET="octoport-app-${OS}-${ARCH}.tar.gz"
-          curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
-          tar xzf "$TMP/${ASSET}" -C "$TMP"
+          download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
+          run_with_spinner "extracting ${ASSET}" tar xzf "$TMP/${ASSET}" -C "$TMP"
           verify_and_install_binary "octoport-app-${OS}-${ARCH}" "/usr/local/bin/octoport-app"
         fi
       fi
@@ -340,12 +388,12 @@ if [ "$INSTALL_GUI" = "true" ]; then
     macos)
       ASSET="octoport-app-${OS}-${ARCH}.dmg"
       if grep -q " ${ASSET}\$" "$TMP/SHA256SUMS"; then
-        curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
+        download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
         install_dmg "$ASSET"
       else
         ASSET="octoport-app-${OS}-${ARCH}.pkg"
         if grep -q " ${ASSET}\$" "$TMP/SHA256SUMS"; then
-          curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
+          download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
           install_pkg "$ASSET"
         else
           ASSET="octoport-app-${OS}-${ARCH}"
@@ -356,7 +404,7 @@ if [ "$INSTALL_GUI" = "true" ]; then
     windows)
       ASSET="octoport-app-${OS}-${ARCH}.msi"
       if grep -q " ${ASSET}\$" "$TMP/SHA256SUMS"; then
-        curl -fsSL "${BASE_URL}/${ASSET}" -o "$TMP/${ASSET}"
+        download_asset "${BASE_URL}/${ASSET}" "$TMP/${ASSET}"
         install_msi "$ASSET"
       else
         ASSET="octoport-app-${OS}-${ARCH}.exe"

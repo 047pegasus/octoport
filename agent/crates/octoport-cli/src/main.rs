@@ -10,6 +10,7 @@
 //! Every command renders neofetch-style: the OctoPort mark on the left, the
 //! command's output in the column to its right.
 
+mod loader;
 mod neofetch;
 
 use std::process::ExitCode;
@@ -17,6 +18,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
+use loader::Loader;
 use neofetch::{ASCII_ART, Neofetch};
 use octoport_core::{Client, Settings, client::AuthResponse, store};
 use tracing_subscriber::EnvFilter;
@@ -219,8 +221,18 @@ async fn run(cli: Cli) -> Result<()> {
         Command::Whoami => {
             let auth = require_auth()?;
             let client = client.with_token(&auth.token);
-            let me = client.me().await?;
-            let tunnels = client.list_tunnels().await?;
+
+            // Fast path: answer from the local profile/tunnel cache so the
+            // command feels instant even when the control plane is slow.
+            let (me, tunnels) = match (store::cached_profile(), store::cached_tunnels()) {
+                (Some(me), Some(tunnels)) => (me, tunnels),
+                _ => {
+                    let mut loader = Loader::start("fetching profile");
+                    let (me, tunnels) = fetch_profile(&client).await?;
+                    loader.done().await;
+                    (me, tunnels)
+                }
+            };
 
             let active = tunnels.len();
             let max = me.max_tunnels.max(0) as usize;
@@ -247,7 +259,16 @@ async fn run(cli: Cli) -> Result<()> {
         Command::List => {
             let auth = require_auth()?;
             let client = client.with_token(&auth.token);
-            let tunnels = client.list_tunnels().await?;
+            let tunnels = match store::cached_tunnels() {
+                Some(t) => t,
+                None => {
+                    let mut loader = Loader::start("listing tunnels");
+                    let tunnels = client.list_tunnels().await?;
+                    loader.done().await;
+                    store::save_cached_tunnels(&tunnels);
+                    tunnels
+                }
+            };
             if tunnels.is_empty() {
                 println!("no tunnels");
             } else {
@@ -276,25 +297,40 @@ async fn run(cli: Cli) -> Result<()> {
         Command::Delete { id } => {
             let auth = require_auth()?;
             let client = client.with_token(&auth.token);
-            client.delete_tunnel(&id).await?;
+            let mut loader = Loader::start("deleting tunnel");
+            let res = client.delete_tunnel(&id).await;
+            loader.done().await;
+            res?;
+            store::invalidate_tunnels_cache();
             println!("deleted tunnel {id}");
         }
         Command::Pause { id } => {
             let auth = require_auth()?;
             let client = client.with_token(&auth.token);
-            client.set_tunnel_enabled(&id, false).await?;
+            let mut loader = Loader::start("pausing tunnel");
+            let res = client.set_tunnel_enabled(&id, false).await;
+            loader.done().await;
+            res?;
+            store::invalidate_tunnels_cache();
             println!("paused tunnel {id} (subdomain kept reserved)");
         }
         Command::Resume { id } => {
             let auth = require_auth()?;
             let client = client.with_token(&auth.token);
-            client.set_tunnel_enabled(&id, true).await?;
+            let mut loader = Loader::start("resuming tunnel");
+            let res = client.set_tunnel_enabled(&id, true).await;
+            loader.done().await;
+            res?;
+            store::invalidate_tunnels_cache();
             println!("resumed tunnel {id}");
         }
         Command::History { limit } => {
             let auth = require_auth()?;
             let client = client.with_token(&auth.token);
-            let events = client.list_events(limit as usize).await?;
+            let mut loader = Loader::start("fetching history");
+            let events = client.list_events(limit as usize).await;
+            loader.done().await;
+            let events = events?;
             if events.is_empty() {
                 println!("no tunnel history yet");
             } else {
@@ -338,13 +374,20 @@ async fn run(cli: Cli) -> Result<()> {
 
             // 1. allocate a random subdomain
             let client = client.with_token(&auth.token);
-            let tunnel = client.create_tunnel(&settings.local_addr, &settings.protocol, None, None).await?;
+            let mut loader = Loader::start("allocating subdomain");
+            let created = client.create_tunnel(&settings.local_addr, &settings.protocol, None, None).await;
+            loader.done().await;
+            let tunnel = created?;
+            store::invalidate_tunnels_cache();
             println!("Public URL:  {}", tunnel.url);
             println!("Exposing {protocol}://{} (tunnel {})", settings.local_addr, tunnel.id);
             println!("Tunnel expires after 5 minutes of inactivity. Press Ctrl+C to stop.");
 
             // 2. mint a short-lived agent-scoped token, connect, and stream
-            let agent_token = client.agent_token().await?;
+            let mut loader = Loader::start("connecting agent");
+            let agent_token = client.agent_token().await;
+            loader.done().await;
+            let agent_token = agent_token?;
             let agent = octoport_core::Agent::connect(&settings.ws_url, &agent_token, settings.max_frame_size, settings.max_streams)
                 .await?;
             agent.run().await?;
@@ -499,6 +542,16 @@ fn require_auth() -> Result<store::StoredAuth> {
     store::load_auth()?.ok_or_else(|| anyhow!("not signed in; run `octoport login` first"))
 }
 
+/// Fetch the signed-in profile and tunnel list, seeding the local cache so
+/// subsequent `whoami` calls answer instantly.
+async fn fetch_profile(client: &Client) -> Result<(octoport_core::client::Me, Vec<octoport_core::client::TunnelListItem>)> {
+    let me = client.me().await?;
+    let tunnels = client.list_tunnels().await?;
+    store::save_cached_profile(&me);
+    store::save_cached_tunnels(&tunnels);
+    Ok((me, tunnels))
+}
+
 /// Persist a fresh session the same way register/login always have.
 fn save_session(auth: &AuthResponse) -> Result<()> {
     store::save_auth(&store::StoredAuth {
@@ -530,16 +583,21 @@ async fn browser_login(client: &Client, nf: &Neofetch) -> Result<AuthResponse> {
     // The browser flow can sit open for a while; poll until it resolves or the
     // server-side session expires (~10 minutes).
     let mut attempts = 0u32;
+    let mut loader = Loader::start("waiting for browser");
     loop {
         tokio::time::sleep(Duration::from_secs(2)).await;
         attempts += 1;
         match client.cli_login_poll(&start.device).await? {
             octoport_core::client::CliPoll::Pending => {
                 if attempts > 300 {
+                    loader.done().await;
                     return Err(anyhow!("sign-in timed out, please try again"));
                 }
             }
-            octoport_core::client::CliPoll::Done(auth) => return Ok(auth),
+            octoport_core::client::CliPoll::Done(auth) => {
+                loader.done().await;
+                return Ok(auth);
+            }
         }
     }
 }

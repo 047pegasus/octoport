@@ -1512,8 +1512,28 @@ fn AuthScreen(state: AppState) -> Element {
     let any_busy = busy || github_busy;
     let register = (state.register_mode)();
 
+    // Start the SlicedWaves background once the screen is mounted, and stop it
+    // when the screen unmounts (a session starts). The WebGL loop lives fully
+    // in the webview; eval just boots and shuts it down.
+    use_effect(move || {
+        spawn(async move {
+            let _ = eval(include_str!("../assets/sliced_waves.js")).await;
+            let _ = eval(&format!(
+                "window.__octoportSlicedWaves('auth-waves', {{ color1: '#7C6CFF', color2: '#3B1D9E', color3: '#B497CF', columns: 16, rows: 10, barThickness: 0.12, speed: 0.4, travel: 0.75, waveSpread: 0.9, rowOffset: 1.0, softness: 0.06, glow: 0, brightness: 1.0, contrast: 1.0, opacity: 0.55, orientation: 'horizontal', mouseInteraction: true, grain: true, grainIntensity: 0.04 }});"
+            ))
+            .await;
+        });
+    });
+    use_drop({
+        let _ = state;
+        move || {
+            let _ = eval("window.__octoportSlicedWavesStop()");
+        }
+    });
+
     rsx! {
         div { class: "auth",
+            canvas { id: "auth-waves", class: "auth-waves" }
             div { class: "auth-card",
                 div { class: "auth-brand",
                     div { class: "auth-logo", dangerous_inner_html: crate::logo::mark_markup() }
@@ -1738,7 +1758,7 @@ fn AboutModal(state: AppState) -> Element {
                     div { class: "about-name", "OctoPort" }
                     div { class: "about-ver", "version {version}" }
                     p { class: "about-desc",
-                        "Open local ports to the public internet on random subdomains. Free, secure, and self-hostable — built on Go, Rust, YugabyteDB, and Valkey."
+                        "Open local ports to the public internet on random subdomains. Free, secure, and performant."
                     }
                     div { class: "about-links",
                         button { class: "btn btn-ghost btn-sm", onclick: move |_| open_browser(&git), "GitHub" }

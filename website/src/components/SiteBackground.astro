@@ -64,7 +64,13 @@
       const dark = document.documentElement.classList.contains('dark');
       const theme = dark ? 'dark' : 'light';
       if (theme === currentTheme) return;
+      const isSwap = currentTheme !== null;
       currentTheme = theme;
+
+      // On a theme swap, fade the canvas out before tearing the old shader
+      // down and fade the new one back in, so the backdrop cross-fades with
+      // the rest of the page instead of cutting.
+      if (isSwap) host.style.opacity = '0';
 
       destroy?.();
       destroy = dark
@@ -113,8 +119,14 @@
             grain: true,
             grainIntensity: 0.05,
           });
+
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        host.style.opacity = '1';
+      }));
     };
 
+    host.style.transition = 'opacity 0.32s ease';
+    host.style.opacity = '1';
     mount();
 
     // Re-mount when the theme toggle flips the root class.
@@ -127,7 +139,27 @@
 
 <style>
   /* Positioning lives in global.css (.site-bg) so the shell rules and this
-     component cannot disagree about stacking. */
+     component cannot disagree about stacking.
+
+     Two layers, BOTH inside .site-bg and therefore below the content layer:
+       ::before  a permanent centre vignette. This is what keeps the hero
+                 readable while the scroll veil is still at zero. It replaces
+                 the old per-band veil, which sat in the content layer and
+                 painted over the text.
+       ::after   the scroll-driven veil. */
+  .site-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      68% 58% at 50% 46%,
+      color-mix(in oklab, var(--page-veil) 62%, transparent) 0%,
+      color-mix(in oklab, var(--page-veil) 34%, transparent) 52%,
+      transparent 78%
+    );
+  }
+
   .site-bg::after {
     content: '';
     position: absolute;
