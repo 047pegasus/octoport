@@ -40,14 +40,14 @@ use futures_util::{SinkExt, StreamExt};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
-use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream, Connector};
+use tokio_tungstenite::{connect_async_tls_with_config, MaybeTlsStream, WebSocketStream, Connector};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
 use crate::protocol::{Frame, OpenMeta, MSG_CLOSE, MSG_DATA, MSG_ERROR, MSG_OPEN, MSG_PING, MSG_PONG, STREAM_CONTROL};
-use rustls::ClientConfig;
 use rustls_native_certs;
+use webpki_roots;
 struct StreamHandle {
     /// Sends inbound bytes (from the proxy) to the local writer task.
     inbound: mpsc::Sender<Vec<u8>>,
@@ -82,7 +82,7 @@ impl Agent {
         let tls_config = Self::create_tls_config()?;
         let connector = Connector::Rustls(tls_config);
 
-        let (ws, _resp) = connect_async(req)
+        let (ws, _resp) = connect_async_tls_with_config(req, None, false, Some(connector))
             .await
             .map_err(|e| anyhow!("websocket connect failed: {e}"))?;
         let (outbound, outbound_rx) = mpsc::unbounded_channel::<Frame>();
@@ -103,12 +103,25 @@ impl Agent {
     fn create_tls_config() -> Result<std::sync::Arc<rustls::ClientConfig>> {
         let mut root_store = rustls::RootCertStore::empty();
         
-        // Add system root certificates
-        let certs = rustls_native_certs::load_native_certs()
-            .map_err(|e| anyhow!("failed to load native certs: {e}"))?;
+        // Try to load system native certificates first
+        let mut certs_loaded = 0;
+        if let Ok(certs) = rustls_native_certs::load_native_certs() {
+            for cert in certs {
+                if root_store.add(cert).is_ok() {
+                    certs_loaded += 1;
+                }
+            }
+        }
         
-        for cert in certs {
-            root_store.add(cert).map_err(|e| anyhow!("failed to add cert to store: {e}"))?;
+        // Fallback: add webpki roots (Mozilla's root certificates) if native certs failed
+        if certs_loaded == 0 {
+            root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
+                rustls::pki_types::TrustAnchor {
+                    subject: rustls::pki_types::Der::from_slice(ta.subject),
+                    subject_public_key_info: rustls::pki_types::Der::from_slice(ta.spki),
+                    name_constraints: ta.name_constraints.map(rustls::pki_types::Der::from_slice),
+                }
+            }));
         }
         
         let config = rustls::ClientConfig::builder()

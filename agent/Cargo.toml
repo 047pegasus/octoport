@@ -25,7 +25,7 @@ clap = { version = "4", features = ["derive", "env"] }
 dirs = "6"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-rustls = { version = "0.23", features = ["std"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
 rustls-native-certs = "0.7"
 webpki = "0.22"
 
