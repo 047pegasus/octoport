@@ -15,6 +15,10 @@ export const CONTROL_PLANE_ORIGIN = 'https://octoport-control-plane.itanishq.spa
 export const INSTALL_URL = `${SITE_ORIGIN}/install.sh`;
 export const INSTALL_CMD = `curl -sL ${INSTALL_URL} | sh`;
 
+/** Windows installs run through PowerShell (no git/bash on PATH). */
+export const INSTALL_PS1_URL = `${SITE_ORIGIN}/install.ps1`;
+export const INSTALL_PS1_CMD = `iex (irm ${INSTALL_PS1_URL})`;
+
 /** Tunnels are published as <random>.<TUNNEL_DOMAIN>. */
 export const TUNNEL_DOMAIN = 'itanishq.space';
 export const EXAMPLE_URL = `https://k7xq2p9m.${TUNNEL_DOMAIN}`;

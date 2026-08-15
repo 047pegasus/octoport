@@ -4,7 +4,7 @@ import CodeBlock from '../components/CodeBlock.astro';
 import DiagramFlow from '../components/docs/DiagramFlow.astro';
 import DiagramAuth from '../components/docs/DiagramAuth.astro';
 import DiagramLifecycle from '../components/docs/DiagramLifecycle.astro';
-import { GITHUB_URL, LIMITS, INSTALL_CMD, EXAMPLE_URL, RELEASES_URL } from '../lib/site';
+import { GITHUB_URL, LIMITS, INSTALL_CMD, INSTALL_PS1_CMD, EXAMPLE_URL, RELEASES_URL } from '../lib/site';
 
 const toc = [
   { id: 'overview', label: 'What OctoPort does' },
@@ -137,8 +137,9 @@ const cliRows = [
           runtime to install alongside it.
         </p>
         <CodeBlock code={INSTALL_CMD} label="macOS · Linux" />
+        <CodeBlock code={INSTALL_PS1_CMD} label="Windows · PowerShell" />
         <p class="leading-relaxed text-muted-foreground">
-          On Windows, or if you would rather not pipe a script into a shell, download the file for
+          Or, if you would rather not pipe a script into a shell, download the file for
           your platform from the
           <a class="text-primary underline underline-offset-4" href={RELEASES_URL} target="_blank" rel="noreferrer noopener">releases page</a>
           and put it somewhere on your PATH. Either way, check it landed:
