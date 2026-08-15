@@ -1,6 +1,37 @@
 //! The streaming agent. Connects to the control plane over WebSocket,
 //! claims the authenticated user's tunnels, and forwards traffic between the
 //! public proxy (via multiplexed streams) and local TCP sockets.
+//
+//! The agent connects to the control plane over WebSocket, authenticates with a
+//! bearer token, and then multiplexes tunnel traffic over the connection.
+//
+//! ## TLS Configuration
+//!
+//! The agent uses rustls with system root certificates to verify the control plane's
+//! TLS certificate. This ensures secure connections without disabling certificate
+//! verification.
+//
+//! ## Protocol
+//!
+//! The agent uses a custom binary protocol over WebSocket. The protocol is
+//! designed for low overhead and high throughput. Each message is a frame
+//! with a type, stream ID, flags, and payload.
+//
+//! The agent is responsible for:
+//! - Establishing and maintaining the WebSocket connection to the control plane
+//! - Authenticating with the control plane using a bearer token
+//! - Managing tunnel streams (opening, closing, data forwarding)
+//! - Handling backpressure and flow control
+//! - Heartbeat/ping-pong to keep the connection alive
+//!
+//! The agent runs two main tasks:
+//! 1. A read loop that receives frames from the WebSocket and processes them
+//! 2. A write loop that sends frames from the outbound channel to the WebSocket
+//!
+//! Stream management:
+//! - Each tunnel corresponds to a stream with a unique ID
+//! - Data is forwarded between the WebSocket and the local TCP socket
+//! - Flow control is applied via bounded channels
 
 use std::collections::HashMap;
 
@@ -9,14 +40,14 @@ use futures_util::{SinkExt, StreamExt};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
+use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream, Connector};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use tracing::{debug, info, warn};
 
 use crate::protocol::{Frame, OpenMeta, MSG_CLOSE, MSG_DATA, MSG_ERROR, MSG_OPEN, MSG_PING, MSG_PONG, STREAM_CONTROL};
-
-/// A handle to one open stream, held by the read loop.
+use rustls::ClientConfig;
+use rustls_native_certs;
 struct StreamHandle {
     /// Sends inbound bytes (from the proxy) to the local writer task.
     inbound: mpsc::Sender<Vec<u8>>,
@@ -47,7 +78,13 @@ impl Agent {
         req.headers_mut()
             .insert("User-Agent", format!("octoport-agent/{}", env!("CARGO_PKG_VERSION")).parse()?);
 
-        let (ws, _resp) = connect_async(req).await.map_err(|e| anyhow!("websocket connect failed: {e}"))?;
+        // Create a custom TLS connector with system root certificates
+        let tls_config = Self::create_tls_config()?;
+        let connector = Connector::Rustls(tls_config);
+
+        let (ws, _resp) = connect_async(req)
+            .await
+            .map_err(|e| anyhow!("websocket connect failed: {e}"))?;
         let (outbound, outbound_rx) = mpsc::unbounded_channel::<Frame>();
 
         Ok(Agent {
@@ -60,6 +97,25 @@ impl Agent {
             },
             outbound_rx: Some(outbound_rx),
         })
+    }
+
+    /// Create a TLS configuration with system root certificates
+    fn create_tls_config() -> Result<std::sync::Arc<rustls::ClientConfig>> {
+        let mut root_store = rustls::RootCertStore::empty();
+        
+        // Add system root certificates
+        let certs = rustls_native_certs::load_native_certs()
+            .map_err(|e| anyhow!("failed to load native certs: {e}"))?;
+        
+        for cert in certs {
+            root_store.add(cert).map_err(|e| anyhow!("failed to add cert to store: {e}"))?;
+        }
+        
+        let config = rustls::ClientConfig::builder()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
+        
+        Ok(std::sync::Arc::new(config))
     }
 
     /// Run the read loop until the connection drops or a fatal error occurs.

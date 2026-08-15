@@ -25,6 +25,9 @@ clap = { version = "4", features = ["derive", "env"] }
 dirs = "6"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+rustls = { version = "0.23", features = ["std"] }
+rustls-native-certs = "0.7"
+webpki = "0.22"
 
 # -----------------------------------------------------------------------------
 # Release profile for shipped clients.

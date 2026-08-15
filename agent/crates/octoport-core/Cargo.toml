@@ -16,3 +16,6 @@ tokio-tungstenite = { workspace = true, features = ["__rustls-tls"] }
 reqwest.workspace = true
 tracing.workspace = true
 dirs.workspace = true
+rustls = { workspace = true }
+rustls-native-certs = { workspace = true }
+webpki = { workspace = true }
