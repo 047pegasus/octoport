@@ -53,7 +53,9 @@ const platforms = [
             </span>
             <h3 class="mt-4 font-semibold">{p.name}</h3>
             <p class="mt-1 text-sm text-muted-foreground">{p.note}</p>
-            <pre class="mt-4 overflow-x-auto rounded-lg bg-muted/70 px-3 py-2.5 font-mono text-[11.5px] leading-relaxed">{p.cmd}</pre>
+            <div class="relative mt-4">
+              <pre data-copy={p.cmd} class="overflow-x-auto rounded-lg bg-muted/70 px-3 py-2.5 pr-10 font-mono text-[11.5px] leading-relaxed">{p.cmd}</pre>
+            </div>
           </div>
         ))
       }
@@ -113,3 +115,8 @@ const platforms = [
     </div>
   </section>
 </Layout>
+
+<script>
+  import { initCopyButtons } from '../scripts/copy-code';
+  initCopyButtons();
+</script>

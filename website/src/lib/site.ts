@@ -14,10 +14,12 @@ export const CONTROL_PLANE_ORIGIN = 'https://octoport-control-plane.itanishq.spa
 
 export const INSTALL_URL = `${SITE_ORIGIN}/install.sh`;
 export const INSTALL_CMD = `curl -sL ${INSTALL_URL} | sh`;
+export const INSTALL_UNINSTALL_CMD = `curl -sL ${INSTALL_URL} | sh -s -- --uninstall`;
 
 /** Windows installs run through PowerShell (no git/bash on PATH). */
 export const INSTALL_PS1_URL = `${SITE_ORIGIN}/install.ps1`;
 export const INSTALL_PS1_CMD = `iex (irm ${INSTALL_PS1_URL})`;
+export const INSTALL_PS1_UNINSTALL_CMD = `& ([scriptblock]::Create((irm ${INSTALL_PS1_URL}))) --uninstall`;
 
 /** Tunnels are published as <random>.<TUNNEL_DOMAIN>. */
 export const TUNNEL_DOMAIN = 'itanishq.space';

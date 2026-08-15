@@ -20,32 +20,11 @@ const { code, label, class: cls = '' } = Astro.props;
     )
   }
   <pre
-    class="overflow-x-auto rounded-xl border border-border/80 bg-muted/50 p-4 font-mono text-[13px] leading-relaxed"
+    class="overflow-x-auto rounded-xl border border-border/80 bg-muted/50 py-4 pl-4 pr-12 font-mono text-[13px] leading-relaxed"
 data-copy={code}><code>{code}</code></pre>
 </figure>
 
 <script>
-  for (const pre of document.querySelectorAll<HTMLElement>('pre[data-copy]')) {
-    if (!navigator.clipboard) break;
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = 'Copy';
-    btn.setAttribute('aria-label', 'Copy code to clipboard');
-    btn.className =
-      'absolute right-2.5 top-2.5 rounded-md border border-border bg-card/90 px-2 py-1 text-[11px] font-medium ' +
-      'text-muted-foreground opacity-0 transition hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100';
-
-    btn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(pre.dataset.copy ?? '');
-        btn.textContent = 'Copied';
-      } catch {
-        btn.textContent = 'Press ⌘C';
-      }
-      setTimeout(() => (btn.textContent = 'Copy'), 1600);
-    });
-
-    pre.parentElement?.appendChild(btn);
-  }
+  import { initCopyButtons } from '../scripts/copy-code';
+  initCopyButtons();
 </script>

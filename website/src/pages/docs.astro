@@ -4,7 +4,7 @@ import CodeBlock from '../components/CodeBlock.astro';
 import DiagramFlow from '../components/docs/DiagramFlow.astro';
 import DiagramAuth from '../components/docs/DiagramAuth.astro';
 import DiagramLifecycle from '../components/docs/DiagramLifecycle.astro';
-import { GITHUB_URL, LIMITS, INSTALL_CMD, INSTALL_PS1_CMD, EXAMPLE_URL, RELEASES_URL } from '../lib/site';
+import { GITHUB_URL, LIMITS, INSTALL_CMD, INSTALL_PS1_CMD, INSTALL_UNINSTALL_CMD, INSTALL_PS1_UNINSTALL_CMD, EXAMPLE_URL, RELEASES_URL } from '../lib/site';
 
 const toc = [
   { id: 'overview', label: 'What OctoPort does' },
@@ -16,6 +16,7 @@ const toc = [
   { id: 'managing', label: 'Managing tunnels' },
   { id: 'cli', label: 'Command reference' },
   { id: 'desktop', label: 'Desktop app' },
+  { id: 'uninstall', label: 'Uninstalling' },
   { id: 'lifetimes', label: 'Lifetimes and limits' },
   { id: 'security', label: 'Security and privacy' },
   { id: 'verify', label: 'Verifying a download' },
@@ -269,6 +270,43 @@ const cliRows = [
         </p>
         <p class="mt-4 leading-relaxed text-muted-foreground">
           Both clients share the same saved session, so signing in on one signs you in on both.
+        </p>
+      </section>
+
+      <!-- uninstall -->
+      <section id="uninstall" class="scroll-mt-24 pt-14">
+        <h2 class="font-display text-2xl tracking-tight sm:text-3xl">Uninstalling</h2>
+        <p class="mt-4 leading-relaxed text-muted-foreground">
+          The same installer can take everything back off. Run it with the
+          <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]">--uninstall</code>
+          flag and it removes the binary (or GUI), the saved session, and the config
+          directories. The flag works the same for macOS, Linux and Windows:
+        </p>
+        <CodeBlock code={INSTALL_UNINSTALL_CMD} label="macOS · Linux" />
+        <CodeBlock code={INSTALL_PS1_UNINSTALL_CMD} label="Windows · PowerShell" />
+        <p class="leading-relaxed text-muted-foreground">
+          The desktop app is a separate install, so if you installed both, run the uninstaller
+          again with
+          <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]">--gui-only</code>
+          to remove just the GUI.
+        </p>
+
+        <p class="mt-6 leading-relaxed text-muted-foreground">
+          Nothing is left on your PATH and no scheduled tasks or launch agents are registered, so
+          removing the binary is the whole story. If you placed the file somewhere unusual, delete
+          it by hand:
+        </p>
+        <CodeBlock
+          code={'rm -f /usr/local/bin/octoport /usr/local/bin/octoport-app\nrm -rf /opt/octoport-app.AppImage /Applications/OctoPort.app'}
+          label="macOS · Linux · manual"
+        />
+        <CodeBlock
+          code={'Remove-Item "$env:LOCALAPPDATA\\octoport" -Recurse -Force -ErrorAction SilentlyContinue\nRemove-Item "$env:USERPROFILE\\.config\\octoport", "$env:USERPROFILE\\.local\\share\\octoport" -Recurse -Force -ErrorAction SilentlyContinue'}
+          label="Windows · manual"
+        />
+        <p class="text-sm leading-relaxed text-muted-foreground">
+          Done. There is no system service, no daemon and nothing running in the background to
+          stop first.
         </p>
       </section>
 
