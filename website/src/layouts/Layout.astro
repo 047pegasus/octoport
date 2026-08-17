@@ -10,7 +10,8 @@ interface Props {
   current?: string;
   /**
    * Path to an OpenGraph image, relative to the site root. Defaults to the
-   * brand mark. Social cards copy the full path as an absolute URL.
+   * dedicated 1200x630 social card. Social platforms reject transparent
+   * images, so card art must be opaque and at least 600px wide.
    */
   ogImage?: string;
   /**
@@ -19,7 +20,7 @@ interface Props {
    */
   overlayNav?: boolean;
 }
-const { title, description, current, ogImage = '/brand/icon-512.png', overlayNav = false } = Astro.props;
+const { title, description, current, ogImage = '/brand/social-card.png', overlayNav = false } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const ogImageUrl = new URL(ogImage, Astro.site);
 ---
@@ -42,15 +43,15 @@ const ogImageUrl = new URL(ogImage, Astro.site);
     <meta property="og:image" content={ogImageUrl} />
     <meta property="og:image:url" content={ogImageUrl} />
     <meta property="og:image:secure_url" content={ogImageUrl} />
-    <meta property="og:image:width" content="512" />
-    <meta property="og:image:height" content="512" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:alt" content="OctoPort brand mark — a square with an octagonal O, dark on a light background and light on a dark one." />
+    <meta property="og:image:alt" content="OctoPort brand mark — an octagonal O in periwinkle on the dark OctoPort background." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={`${title} · OctoPort`} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageUrl} />
-    <meta name="twitter:image:alt" content="OctoPort brand mark — a square with an octagonal O, dark on a light background and light on a dark one." />
+    <meta name="twitter:image:alt" content="OctoPort brand mark — an octagonal O in periwinkle on the dark OctoPort background." />
 
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
